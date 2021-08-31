@@ -2,6 +2,7 @@ extern crate sdl2;
 
 use core::panic;
 use sdl2::{audio::*, AudioSubsystem, Sdl};
+use std::rc::Rc;
 use std::sync::mpsc;
 
 fn u8_to_i16(v: &[u8]) -> &[i16] {
@@ -15,14 +16,16 @@ fn i16_to_f32(v: &[i16]) -> Vec<f32> {
 }
 
 struct WavFileCallback {
-    player: &'static SDLPlayer,
+    samples: Rc<Vec<i16>>,
     file_pos: usize,
+    playback_pos_tx: mpsc::Sender<usize>,
 }
 
 impl WavFileCallback {
-    fn new(player: &'static SDLPlayer) -> WavFileCallback {
+    fn new(samples: Rc<Vec<i16>>, playback_pos_tx: mpsc::Sender<usize>) -> WavFileCallback {
         WavFileCallback {
-            player,
+            samples,
+            playback_pos_tx,
             file_pos: 0,
         }
     }
@@ -37,12 +40,11 @@ impl AudioCallback for WavFileCallback {
 
     fn callback(&mut self, out: &mut [i16]) {
         for i in 0..out.len() {
-            out[i] = self.player.samples[self.file_pos + i];
+            out[i] = self.samples[self.file_pos + i];
         }
 
         self.file_pos += out.len();
-        self.player
-            .playback_pos_tx
+        self.playback_pos_tx
             .send(self.file_pos)
             .expect("Failed to send file_pos");
     }
@@ -52,9 +54,8 @@ pub struct SDLPlayer {
     sdl_context: Sdl,
     sdl_audio: AudioSubsystem,
     //wav_file_spec: AudioSpecWAV,
-    samples: Vec<i16>,
-    playback_pos_tx: mpsc::Sender<usize>,
-    device: Option<AudioDevice<WavFileCallback>>,
+    samples: Rc<Vec<i16>>,
+    device: AudioDevice<WavFileCallback>,
 }
 
 impl SDLPlayer {
@@ -77,43 +78,35 @@ impl SDLPlayer {
         let sdl_audio = sdl_context
             .audio()
             .expect("Cannot init SDL audio: {error_msg}");
-        let mut player = SDLPlayer {
-            sdl_context,
-            sdl_audio,
-            samples: SDLPlayer::get_samples_from_file(file_path),
-            playback_pos_tx,
-            device: None,
-        };
+        let samples = Rc::new(SDLPlayer::get_samples_from_file(file_path));
         let desired_spec = AudioSpecDesired {
             freq: Some(44100),
             channels: Some(1),
             samples: None, // Default sample buffer size
         };
 
-        player.device = Some(
-            player
-                .sdl_audio
-                .open_playback(None, &desired_spec, |spec| {
-                    if spec.freq != desired_spec.freq.expect("No desired freq?!")
-                        || spec.channels
-                            != desired_spec.channels.expect("No desired channel count?!")
-                    {
-                        panic!("Actual AudioSpec does not match desired spec.");
-                    }
+        let device = sdl_audio
+            .open_playback(None, &desired_spec, |spec| {
+                if spec.freq != desired_spec.freq.expect("No desired freq?!")
+                    || spec.channels != desired_spec.channels.expect("No desired channel count?!")
+                {
+                    panic!("Actual AudioSpec does not match desired spec.");
+                }
 
-                    WavFileCallback::new(&player)
-                })
-                .expect("Cannot open audio device: {error_msg}"),
-        );
+                WavFileCallback::new(Rc::clone(&samples), playback_pos_tx)
+            })
+            .expect("Cannot open audio device: {error_msg}");
 
-        return player;
+        SDLPlayer {
+            sdl_context,
+            sdl_audio,
+            samples,
+            device,
+        }
     }
 
     pub fn start(&self) {
-        match &self.device {
-            Some(device) => device.resume(),
-            None => println!("Cannot start without an open output device"),
-        }
+        self.device.resume();
     }
 
     pub fn get_audio_buffer(&self) -> Vec<f32> {
