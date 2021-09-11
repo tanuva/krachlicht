@@ -1,7 +1,8 @@
 use dft::{Operation, Plan};
 use std::cmp;
 use std::sync::mpsc;
-use std::time::{Duration, Instant};
+
+use crate::intervaltimer::IntervalTimer;
 
 pub struct Photonizer {
     samples: Vec<f32>,
@@ -9,19 +10,13 @@ pub struct Photonizer {
     file_pos_rx: mpsc::Receiver<usize>,
     plan: Plan<f32>,
     window_size: usize,
-
-    frames: u32,
-    last_fps_print: Instant,
-
-    interval: Duration,
+    timer: IntervalTimer,
 }
 
 impl Photonizer {
     pub fn new(samples: Vec<f32>, file_pos_rx: mpsc::Receiver<usize>) -> Photonizer {
         let window_size = 1024;
-
         let update_freq_hz = 30.0;
-        let frame_duration_microsec = 1000.0 / update_freq_hz * 1000.0;
 
         Photonizer {
             samples,
@@ -29,20 +24,14 @@ impl Photonizer {
             file_pos_rx,
             plan: Plan::<f32>::new(Operation::Forward, window_size),
             window_size,
-
-            frames: 0,
-            last_fps_print: Instant::now(),
-
-            interval: Duration::from_micros(frame_duration_microsec as u64),
+            timer: IntervalTimer::new(update_freq_hz, true),
         }
     }
 
     pub fn run(&mut self) {
         loop {
-            let tick_begin = Instant::now();
             self.update();
-            self.update_fps();
-            self.sleep(&tick_begin);
+            self.timer.sleep_until_next_tick();
         }
     }
 
@@ -74,26 +63,5 @@ impl Photonizer {
             .expect("No maximum in output data?!");
 
         println!("output_max: {}\tbucket[2]: {}", _max_intensity, intensities[2]);*/
-    }
-
-    fn update_fps(&mut self) {
-        self.frames += 1;
-
-        if Instant::now() - self.last_fps_print > Duration::from_secs(1) {
-            println!("FPS: {}", self.frames);
-            self.frames = 0;
-            self.last_fps_print = Instant::now();
-        }
-    }
-
-    fn sleep(&self, tick_begin: &Instant) {
-        let next_tick = if *tick_begin + self.interval > Instant::now() {
-            *tick_begin + self.interval
-        } else {
-            println!("Photonizer skipped a frame");
-            Instant::now() + self.interval
-        };
-
-        std::thread::sleep(next_tick - Instant::now());
     }
 }
