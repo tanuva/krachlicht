@@ -1,7 +1,7 @@
 extern crate dft;
 
-mod photonizer;
-mod sdlplayer;
+pub(crate) mod photonizer;
+pub(crate) mod sdlplayer;
 
 use std::sync::mpsc;
 use std::thread;
