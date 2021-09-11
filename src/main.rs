@@ -19,9 +19,23 @@ fn main() {
     let analysis_buffer = player.get_audio_buffer();
     let mut photonizer = Photonizer::new(analysis_buffer, file_pos_rx);
 
-    thread::spawn(move || {
-        photonizer.run();
-    });
+    match thread::Builder::new()
+        .name("Photonizer".to_string())
+        .spawn(move || {
+            photonizer.run();
+        }) {
+        Ok(_) => (),
+        Err(error) => panic!("Failed to create thread: {}", error),
+    };
+
+    match thread::Builder::new()
+        .name("UI".to_string())
+        .spawn(move || {
+            ui.run();
+        }) {
+        Ok(_) => (),
+        Err(error) => panic!("Failed to create thread: {}", error),
+    };
 
     player.start();
     std::thread::sleep(Duration::from_millis(10 * 1000));
