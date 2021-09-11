@@ -2,22 +2,25 @@ extern crate dft;
 
 pub(crate) mod intervaltimer;
 pub(crate) mod photonizer;
+pub(crate) mod playbackstate;
 pub(crate) mod sdlplayer;
 
-use std::sync::mpsc;
+use std::sync::Arc;
+use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
 
 use photonizer::Photonizer;
+use playbackstate::PlaybackState;
 use sdlplayer::SDLPlayer;
 
 fn main() {
     let file_path = "/Users/marcel/Downloads/tmt_s16le.wav";
-    let (file_pos_tx, file_pos_rx) = mpsc::channel();
 
-    let player = SDLPlayer::new(file_path, file_pos_tx);
+    let playback_state = Arc::new(Mutex::new(PlaybackState::new()));
+    let player = SDLPlayer::new(file_path, Arc::clone(&playback_state));
     let analysis_buffer = player.get_audio_buffer();
-    let mut photonizer = Photonizer::new(analysis_buffer, file_pos_rx);
+    let mut photonizer = Photonizer::new(analysis_buffer, Arc::clone(&playback_state));
 
     match thread::Builder::new()
         .name("Photonizer".to_string())

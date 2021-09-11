@@ -1,27 +1,26 @@
 use dft::{Operation, Plan};
 use std::cmp;
-use std::sync::mpsc;
+use std::sync::{Arc, Mutex};
 
 use crate::intervaltimer::IntervalTimer;
+use crate::playbackstate::PlaybackState;
 
 pub struct Photonizer {
     samples: Vec<f32>,
-    file_pos: usize,
-    file_pos_rx: mpsc::Receiver<usize>,
+    playback_state: Arc<Mutex<PlaybackState>>,
     plan: Plan<f32>,
     window_size: usize,
     timer: IntervalTimer,
 }
 
 impl Photonizer {
-    pub fn new(samples: Vec<f32>, file_pos_rx: mpsc::Receiver<usize>) -> Photonizer {
+    pub fn new(samples: Vec<f32>, playback_state: Arc<Mutex<PlaybackState>>) -> Photonizer {
         let window_size = 1024;
         let update_freq_hz = 30.0;
 
         Photonizer {
             samples,
-            file_pos: 0,
-            file_pos_rx,
+            playback_state,
             plan: Plan::<f32>::new(Operation::Forward, window_size),
             window_size,
             timer: IntervalTimer::new(update_freq_hz, true),
@@ -36,16 +35,12 @@ impl Photonizer {
     }
 
     fn update(&mut self) {
-        // Empty the file_pos channel, we're only interested in the most recent value.
-        //let file_pos = self.file_pos_rx.try_recv();
-        for recvd_file_pos in self.file_pos_rx.try_iter() {
-            //println!("recvd_file_pos: {}", file_pos);
-            self.file_pos = recvd_file_pos;
-        }
+        let playback_state = self.playback_state.lock().unwrap();
+        let file_pos = (*playback_state).file_pos;
 
         // FIXME This will result in slices with non-power-of-2 length near EOF
-        let analysis_slice_end = cmp::min(self.file_pos + self.window_size, self.samples.len());
-        let mut dft_io_data = self.samples[self.file_pos..analysis_slice_end].to_vec();
+        let analysis_slice_end = cmp::min(file_pos + self.window_size, self.samples.len());
+        let mut dft_io_data = self.samples[file_pos..analysis_slice_end].to_vec();
 
         dft::transform(&mut dft_io_data, &self.plan);
 
