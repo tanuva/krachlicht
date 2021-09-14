@@ -22,23 +22,23 @@ fn main() {
     let analysis_buffer = player.get_audio_buffer();
     let mut photonizer = Photonizer::new(analysis_buffer, Arc::clone(&playback_state));
 
-    match thread::Builder::new()
+    let res = thread::Builder::new()
         .name("Photonizer".to_string())
         .spawn(move || {
             photonizer.run();
-        }) {
-        Ok(_) => (),
-        Err(error) => panic!("Failed to create thread: {}", error),
-    };
+        });
+    if let Err(error) = res {
+        panic!("Failed to create thread: {}", error);
+    }
 
-    match thread::Builder::new()
+    let res = thread::Builder::new()
         .name("UI".to_string())
         .spawn(move || {
             ui.run();
-        }) {
-        Ok(_) => (),
-        Err(error) => panic!("Failed to create thread: {}", error),
-    };
+        });
+    if let Err(error) = res {
+        panic!("Failed to create thread: {}", error);
+    }
 
     player.start();
     std::thread::sleep(Duration::from_millis(10 * 1000));
