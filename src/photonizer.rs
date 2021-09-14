@@ -18,6 +18,12 @@ impl Photonizer {
         let window_size = 1024;
         let update_freq_hz = 30.0;
 
+        {
+            let mut playback_state = playback_state.lock().unwrap();
+            (*playback_state).bucket_count = window_size / 2;
+            (*playback_state).freq_step = 44100.0 / window_size as f32;
+        }
+
         Photonizer {
             samples,
             playback_state,
@@ -47,16 +53,12 @@ impl Photonizer {
         // Normalize results
         // https://dsp.stackexchange.com/questions/11376/why-are-magnitudes-normalised-during-synthesis-idft-not-analysis-dft
         let scale_factor = 1.0 / (self.window_size as f32);
-        let _intensities: Vec<f32> = dft::unpack(&dft_io_data)
+        let intensities: Vec<f32> = dft::unpack(&dft_io_data)
             .iter()
             .map(|c| c.norm() * scale_factor)
             .collect();
 
-        /*let max_intensity = intensities
-            .iter()
-            .reduce(|a, b| if a >= b { a } else { b })
-            .expect("No maximum in output data?!");
-
-        println!("output_max: {}\tbucket[2]: {}", _max_intensity, intensities[2]);*/
+        let mut playback_state = self.playback_state.lock().unwrap();
+        (*playback_state).intensities = intensities;
     }
 }
