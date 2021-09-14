@@ -128,8 +128,8 @@ impl SDLPlayer {
             .iter()
             .reduce(|a, b| if a >= b { a } else { b })
             .expect("D'oh.");
-        println!("Sample extrema of input file: {}/{}", file_min, file_max);
-        println!("Sample extrema for analysis: {}/{}", ana_min, ana_max);
+        //println!("Sample extrema of input file: {}/{}", file_min, file_max);
+        //println!("Sample extrema for analysis: {}/{}", ana_min, ana_max);
 
         return analysis_buffer;
     }
