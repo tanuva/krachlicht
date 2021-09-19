@@ -2,7 +2,6 @@ extern crate sdl2;
 
 use core::panic;
 use sdl2::{audio::*, AudioSubsystem, Sdl};
-use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 use crate::playbackstate::PlaybackState;
@@ -18,16 +17,47 @@ fn i16_to_f32(v: &[i16]) -> Vec<f32> {
 }
 
 struct WavFileCallback {
-    samples: Rc<Vec<i16>>,
+    samples: Vec<i16>,
+    analysis_buffer: Vec<f32>,
+    file_pos: usize,
     playback_state: Arc<Mutex<PlaybackState>>,
 }
 
 impl WavFileCallback {
-    fn new(samples: Rc<Vec<i16>>, playback_state: Arc<Mutex<PlaybackState>>) -> WavFileCallback {
+    fn new(samples: Vec<i16>, playback_state: Arc<Mutex<PlaybackState>>) -> WavFileCallback {
+        let analysis_buffer = WavFileCallback::convert_audio_buffer(&samples);
+
         WavFileCallback {
             samples,
+            analysis_buffer,
+            file_pos: 0,
             playback_state,
         }
+    }
+
+    fn convert_audio_buffer(samples: &[i16]) -> Vec<f32> {
+        let analysis_buffer = i16_to_f32(samples);
+
+        let _file_max = samples
+            .iter()
+            .reduce(|a, b| if a >= b { a } else { b })
+            .expect("");
+        let _file_min = samples
+            .iter()
+            .reduce(|a, b| if a < b { a } else { b })
+            .expect("");
+        let _ana_min = analysis_buffer
+            .iter()
+            .reduce(|a, b| if a < b { a } else { b })
+            .expect("D'oh.");
+        let _ana_max = analysis_buffer
+            .iter()
+            .reduce(|a, b| if a >= b { a } else { b })
+            .expect("D'oh.");
+        //println!("Sample extrema of input file: {}/{}", _file_min, _file_max);
+        //println!("Sample extrema for analysis: {}/{}", _ana_min, _ana_max);
+
+        return analysis_buffer;
     }
 }
 
@@ -42,17 +72,22 @@ impl AudioCallback for WavFileCallback {
         let mut playback_state = self.playback_state.lock().unwrap();
 
         for i in 0..out.len() {
-            out[i] = self.samples[(*playback_state).file_pos + i];
+            out[i] = self.samples[self.file_pos + i];
         }
 
-        (*playback_state).file_pos += out.len();
+        let window_size = playback_state.buffer.capacity();
+        let window_end = self.file_pos + window_size;
+        if window_end < self.analysis_buffer.len() {
+            (*playback_state).buffer = self.analysis_buffer[self.file_pos..window_end].to_vec();
+        }
+
+        self.file_pos += out.len();
     }
 }
 
 pub struct SDLPlayer {
     _sdl_context: Sdl,
     _sdl_audio: AudioSubsystem,
-    samples: Rc<Vec<i16>>,
     device: AudioDevice<WavFileCallback>,
 }
 
@@ -76,7 +111,7 @@ impl SDLPlayer {
         let sdl_audio = sdl_context
             .audio()
             .expect("Cannot init SDL audio: {error_msg}");
-        let samples = Rc::new(SDLPlayer::get_samples_from_file(file_path));
+        let samples = SDLPlayer::get_samples_from_file(file_path);
         let desired_spec = AudioSpecDesired {
             freq: Some(44100),
             channels: Some(1),
@@ -91,46 +126,18 @@ impl SDLPlayer {
                     panic!("Actual AudioSpec does not match desired spec.");
                 }
 
-                WavFileCallback::new(Rc::clone(&samples), playback_state)
+                WavFileCallback::new(samples, playback_state)
             })
             .expect("Cannot open audio device: {error_msg}");
 
         SDLPlayer {
             _sdl_context: sdl_context,
             _sdl_audio: sdl_audio,
-            samples,
             device,
         }
     }
 
     pub fn start(&self) {
         self.device.resume();
-    }
-
-    pub fn get_audio_buffer(&self) -> Vec<f32> {
-        let analysis_buffer = i16_to_f32(&self.samples);
-
-        let file_max = self
-            .samples
-            .iter()
-            .reduce(|a, b| if a >= b { a } else { b })
-            .expect("");
-        let file_min = self
-            .samples
-            .iter()
-            .reduce(|a, b| if a < b { a } else { b })
-            .expect("");
-        let ana_min = analysis_buffer
-            .iter()
-            .reduce(|a, b| if a < b { a } else { b })
-            .expect("D'oh.");
-        let ana_max = analysis_buffer
-            .iter()
-            .reduce(|a, b| if a >= b { a } else { b })
-            .expect("D'oh.");
-        //println!("Sample extrema of input file: {}/{}", file_min, file_max);
-        //println!("Sample extrema for analysis: {}/{}", ana_min, ana_max);
-
-        return analysis_buffer;
     }
 }

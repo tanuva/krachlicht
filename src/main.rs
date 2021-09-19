@@ -17,10 +17,10 @@ use sdlplayer::SDLPlayer;
 fn main() {
     let file_path = "/Users/marcel/Downloads/tmt_s16le.wav";
 
-    let playback_state = Arc::new(Mutex::new(PlaybackState::new()));
+    let window_size = 1024;
+    let playback_state = Arc::new(Mutex::new(PlaybackState::new(window_size)));
     let player = SDLPlayer::new(file_path, Arc::clone(&playback_state));
-    let analysis_buffer = player.get_audio_buffer();
-    let mut photonizer = Photonizer::new(analysis_buffer, Arc::clone(&playback_state));
+    let mut photonizer = Photonizer::new(Arc::clone(&playback_state));
     //let mut ui = UI::new(Arc::clone(&playback_state));
 
     let res = thread::Builder::new()

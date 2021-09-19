@@ -1,14 +1,12 @@
 extern crate dft;
 
 use dft::{Operation, Plan};
-use std::cmp;
 use std::sync::{Arc, Mutex};
 
 use crate::intervaltimer::IntervalTimer;
-use crate::playbackstate::PlaybackState;
+use crate::playbackstate::{self, PlaybackState};
 
 pub struct Photonizer {
-    samples: Vec<f32>,
     playback_state: Arc<Mutex<PlaybackState>>,
     plan: Plan<f32>,
     window_size: usize,
@@ -16,9 +14,12 @@ pub struct Photonizer {
 }
 
 impl Photonizer {
-    pub fn new(samples: Vec<f32>, playback_state: Arc<Mutex<PlaybackState>>) -> Photonizer {
-        let window_size = 1024;
+    pub fn new(playback_state: Arc<Mutex<PlaybackState>>) -> Photonizer {
         let update_freq_hz = 30.0;
+        let window_size = {
+            let playback_state = playback_state.lock().unwrap();
+            playback_state.buffer.capacity()
+        };
 
         {
             let mut playback_state = playback_state.lock().unwrap();
@@ -27,7 +28,6 @@ impl Photonizer {
         }
 
         Photonizer {
-            samples,
             playback_state,
             plan: Plan::<f32>::new(Operation::Forward, window_size),
             window_size,
@@ -43,13 +43,7 @@ impl Photonizer {
     }
 
     fn update(&mut self) {
-        let playback_state = self.playback_state.lock().unwrap();
-        let file_pos = (*playback_state).file_pos;
-
-        // FIXME This will result in slices with non-power-of-2 length near EOF
-        let analysis_slice_end = cmp::min(file_pos + self.window_size, self.samples.len());
-        let mut dft_io_data = self.samples[file_pos..analysis_slice_end].to_vec();
-
+        let mut dft_io_data = self.playback_state.lock().unwrap().buffer.clone();
         dft::transform(&mut dft_io_data, &self.plan);
 
         // Normalize results
@@ -60,7 +54,9 @@ impl Photonizer {
             .map(|c| c.norm() * scale_factor)
             .collect();
 
-        let mut playback_state = self.playback_state.lock().unwrap();
-        (*playback_state).intensities = intensities;
+        {
+            let mut playback_state = self.playback_state.lock().unwrap();
+            (*playback_state).intensities = intensities;
+        }
     }
 }
