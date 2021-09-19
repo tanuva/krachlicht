@@ -1,4 +1,3 @@
-use std::thread;
 use std::time::{Duration, Instant};
 
 pub struct IntervalTimer {
@@ -7,6 +6,7 @@ pub struct IntervalTimer {
     measure_fps: bool,
     last_fps_print: Instant,
     frames: u32,
+    fps: u32,
 }
 
 impl IntervalTimer {
@@ -19,6 +19,7 @@ impl IntervalTimer {
             measure_fps,
             last_fps_print: Instant::now(),
             frames: 0,
+            fps: 0,
         }
     }
 
@@ -38,20 +39,16 @@ impl IntervalTimer {
         self.last_tick = next_tick
     }
 
+    pub fn fps(&self) -> u32 {
+        self.fps
+    }
+
     fn update_fps(&mut self) {
         self.frames += 1;
 
         if Instant::now() - self.last_fps_print > Duration::from_secs(1) {
-            let cur_thread = thread::current();
-            let thread_name = if let Some(name) = cur_thread.name() {
-                name
-            } else {
-                "unnamed"
-            };
-
-            //println!("{} FPS: {}", thread_name, self.frames);
+            self.fps = self.frames;
             self.frames = 0;
-            self.last_fps_print = Instant::now();
         }
     }
 }
