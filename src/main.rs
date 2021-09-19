@@ -21,7 +21,6 @@ fn main() {
     let player = SDLPlayer::new(file_path, Arc::clone(&playback_state));
     let analysis_buffer = player.get_audio_buffer();
     let mut photonizer = Photonizer::new(analysis_buffer, Arc::clone(&playback_state));
-    let mut ui = UI::new(Arc::clone(&playback_state));
     //let mut ui = UI::new(Arc::clone(&playback_state));
 
     let res = thread::Builder::new()
