@@ -25,6 +25,12 @@ impl Photonizer {
             let mut playback_state = playback_state.lock().unwrap();
             (*playback_state).bucket_count = window_size / 2;
             (*playback_state).freq_step = 44100.0 / window_size as f32;
+            println!(
+                "Buckets: {}\nBucket bandwidth: {} Hz\nMax frequency: {} Hz",
+                playback_state.bucket_count,
+                playback_state.freq_step,
+                playback_state.bucket_count as f32 * playback_state.freq_step
+            );
         }
 
         Photonizer {
