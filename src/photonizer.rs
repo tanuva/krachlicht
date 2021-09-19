@@ -1,3 +1,5 @@
+extern crate dft;
+
 use dft::{Operation, Plan};
 use std::cmp;
 use std::sync::{Arc, Mutex};

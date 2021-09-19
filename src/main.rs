@@ -1,5 +1,3 @@
-extern crate dft;
-
 pub(crate) mod intervaltimer;
 pub(crate) mod photonizer;
 pub(crate) mod playbackstate;
