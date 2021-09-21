@@ -137,7 +137,7 @@ impl SDLPlayer {
         }
     }
 
-    pub fn start(&self) {
+    pub fn run(&self) {
         self.device.resume();
     }
 }

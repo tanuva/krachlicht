@@ -47,6 +47,6 @@ fn main() {
         panic!("Failed to create thread: {}", error);
     }*/
 
-    player.start();
-    std::thread::sleep(Duration::from_millis(10 * 1000));
+    player.run();
+    //std::thread::sleep(Duration::from_millis(3 * 1000));
 }
