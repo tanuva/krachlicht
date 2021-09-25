@@ -1,5 +1,5 @@
 pub(crate) mod intervaltimer;
-pub(crate) mod oscoutput;
+pub(crate) mod olaoutput;
 pub(crate) mod photonizer;
 pub(crate) mod playbackstate;
 pub(crate) mod pulseinput;
@@ -13,7 +13,7 @@ use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
 
-use oscoutput::OscOutput;
+use olaoutput::OlaOutput;
 use photonizer::Photonizer;
 use playbackstate::PlaybackState;
 use pulseinput::PulseInput;
@@ -30,11 +30,11 @@ fn main() {
     //let mut player = PulseInput::new(Arc::clone(&playback_state), device);
 
     let address = SocketAddr::from_str("127.0.0.1:7770").unwrap();
-    let osc = match OscOutput::new(address) {
-        Ok(osc) => osc,
+    let ola = match OlaOutput::new(address) {
+        Ok(ola) => ola,
         Err(msg) => panic!("Cannot set up OSC: {}", msg),
     };
-    let mut photonizer = Photonizer::new(Arc::clone(&playback_state), osc);
+    let mut photonizer = Photonizer::new(Arc::clone(&playback_state), ola);
     //let mut ui = UI::new(Arc::clone(&playback_state));
 
     let res = thread::Builder::new()

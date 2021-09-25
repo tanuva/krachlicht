@@ -4,7 +4,7 @@ use dft::{Operation, Plan};
 use std::sync::{Arc, Mutex};
 
 use crate::intervaltimer::IntervalTimer;
-use crate::oscoutput::OscOutput;
+use crate::olaoutput::OlaOutput;
 use crate::playbackstate::PlaybackState;
 
 fn to_dmx(v: f32) -> u8 {
@@ -36,11 +36,11 @@ pub struct Photonizer {
     plan: Plan<f32>,
     window_size: usize,
     timer: IntervalTimer,
-    osc: OscOutput,
+    ola: OlaOutput,
 }
 
 impl Photonizer {
-    pub fn new(playback_state: Arc<Mutex<PlaybackState>>, osc: OscOutput) -> Photonizer {
+    pub fn new(playback_state: Arc<Mutex<PlaybackState>>, ola: OlaOutput) -> Photonizer {
         let update_freq_hz = 30.0;
         let window_size = {
             let playback_state = playback_state.lock().unwrap();
@@ -64,7 +64,7 @@ impl Photonizer {
             plan: Plan::<f32>::new(Operation::Forward, window_size),
             window_size,
             timer: IntervalTimer::new(update_freq_hz, true),
-            osc,
+            ola,
         }
     }
 
@@ -112,7 +112,7 @@ impl Photonizer {
 
     fn photonize(&mut self, intensities: &Vec<f32>) {
         self.blink(&intensities);
-        self.osc.flush();
+        self.ola.flush();
     }
 
     fn blink(&mut self, intensities: &Vec<f32>) {
@@ -124,7 +124,7 @@ impl Photonizer {
 
         let scaled = fg_color.scaled(intensities[2]);
         for channel in 0..18 {
-            self.osc.set_rgb(channel * 3, scaled.to_dmx());
+            self.ola.set_rgb(channel * 3, scaled.to_dmx());
         }
     }
 }

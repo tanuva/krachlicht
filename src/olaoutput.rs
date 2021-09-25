@@ -5,13 +5,13 @@ use std::{
 
 use rosc::{encoder, OscMessage, OscPacket, OscType};
 
-pub struct OscOutput {
+pub struct OlaOutput {
     sock: UdpSocket,
     target_addr: SocketAddr,
     buffer: Vec<u8>,
 }
 
-impl OscOutput {
+impl OlaOutput {
     pub fn new(target_addr: SocketAddr) -> Result<Self, String> {
         let our_addr = SocketAddr::from_str("127.0.0.1:0").unwrap();
         let sock = match UdpSocket::bind(our_addr) {
@@ -24,7 +24,7 @@ impl OscOutput {
             buffer.push(0);
         }
 
-        Ok(OscOutput {
+        Ok(OlaOutput {
             sock,
             target_addr,
             buffer,
