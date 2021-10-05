@@ -41,12 +41,19 @@ impl OlaOutput {
         }
     }
 
-    pub fn flush(&self) {
+    pub fn flush(&mut self) {
         let msg_buf = encoder::encode(&OscPacket::Message(OscMessage {
             addr: "/dmx/universe/0".to_string(),
             args: vec![OscType::Blob(Vec::clone(&self.buffer))],
         }))
         .unwrap();
         self.sock.send_to(&msg_buf, self.target_addr).unwrap();
+        self.blackout();
+    }
+
+    pub fn blackout(&mut self) {
+        for i in 0..self.buffer.capacity() {
+            self.buffer[i] = 0;
+        }
     }
 }
