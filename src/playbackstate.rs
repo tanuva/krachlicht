@@ -4,7 +4,6 @@ pub struct PlaybackState {
 
     pub bucket_count: usize,
     pub freq_step: f32,
-    pub intensities: Vec<f32>,
 }
 
 impl PlaybackState {
@@ -16,9 +15,9 @@ impl PlaybackState {
 
         PlaybackState {
             buffer,
+
             bucket_count: 0,
             freq_step: 0.0,
-            intensities: Vec::new(),
         }
     }
 }
