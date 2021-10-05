@@ -27,6 +27,15 @@ impl Color {
         }
     }
 
+    fn mix(&mut self, other: Color) {
+        self.r = (self.r + other.r) / 2.0;
+        self.g = (self.g + other.g) / 2.0;
+        self.b = (self.b + other.b) / 2.0;
+        /*self.r = 1.0f32.min(self.r + other.r);
+        self.g = 1.0f32.min(self.g + other.g);
+        self.b = 1.0f32.min(self.b + other.b);*/
+    }
+
     fn to_dmx(&self) -> [u8; 3] {
         [to_dmx(self.r), to_dmx(self.g), to_dmx(self.b)]
     }
