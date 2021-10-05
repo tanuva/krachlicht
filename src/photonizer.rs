@@ -168,22 +168,11 @@ impl Photonizer {
             .map(|c| limit.min(c.norm() * scale_factor))
             .collect();
 
-        println!(
-            "max: {}\tbucket[2]: {}",
-            intensities
-                .iter()
-                .reduce(|a, b| {
-                    if a > b {
-                        a
-                    } else {
-                        b
-                    }
-                })
-                .unwrap(),
-            intensities[2]
-        );
-
-        self.photonize(&intensities);
+        let _max_intsy = intensities
+            .iter()
+            .reduce(|a, b| if a > b { a } else { b })
+            .unwrap();
+        //println!("max: {}\tbucket[2]: {}", max_intsy, intensities[2]);
     }
 
     fn send_osc(&mut self, intensities: &Vec<f32>) {
