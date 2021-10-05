@@ -11,6 +11,34 @@ fn to_dmx(v: f32) -> u8 {
     (v * 255 as f32) as u8
 }
 
+#[derive(Clone, Copy)]
+pub enum Mode {
+    LightBar,
+    Pixels,
+}
+
+pub struct PhotonizerOptions {
+    pub mode: Mode,
+
+    pub master_intensity: f32,
+    pub background_intensity: f32,
+    pub pulse_speed: f32,
+    pub pulse_width_factor: f32,
+}
+
+impl PhotonizerOptions {
+    pub fn new() -> PhotonizerOptions {
+        PhotonizerOptions {
+            mode: Mode::Pixels,
+
+            master_intensity: 1.0,
+            background_intensity: 0.0,
+            pulse_speed: 0.1,
+            pulse_width_factor: 0.5,
+        }
+    }
+}
+
 #[derive(Default, Clone)]
 struct Color {
     r: f32,
