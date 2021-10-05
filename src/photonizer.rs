@@ -11,6 +11,7 @@ fn to_dmx(v: f32) -> u8 {
     (v * 255 as f32) as u8
 }
 
+#[derive(Default, Clone)]
 struct Color {
     r: f32,
     g: f32,
