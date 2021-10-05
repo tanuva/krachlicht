@@ -2,9 +2,11 @@ extern crate dft;
 
 use dft::{Operation, Plan};
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use crate::intervaltimer::IntervalTimer;
 use crate::olaoutput::OlaOutput;
+use crate::osc::OscSender;
 use crate::playbackstate::PlaybackState;
 
 fn to_dmx(v: f32) -> u8 {
@@ -69,17 +71,33 @@ impl Color {
     }
 }
 
+struct Pulse {
+    position: f32,
+    color: Color,
+}
+
 pub struct Photonizer {
     playback_state: Arc<Mutex<PlaybackState>>,
+    options: Arc<Mutex<PhotonizerOptions>>,
     plan: Plan<f32>,
     window_size: usize,
     timer: IntervalTimer,
     ola: OlaOutput,
+    osc: OscSender,
+
+    pulses: Vec<Pulse>,
+    osc_options_sent: Instant,
 }
 
 impl Photonizer {
-    pub fn new(playback_state: Arc<Mutex<PlaybackState>>, ola: OlaOutput) -> Photonizer {
-        let update_freq_hz = 30.0;
+    pub fn new(
+        playback_state: Arc<Mutex<PlaybackState>>,
+        options: Arc<Mutex<PhotonizerOptions>>,
+        ola: OlaOutput,
+        osc: OscSender,
+    ) -> Photonizer {
+        const UPDATE_FREQ_HZ: f32 = 30.0;
+
         let window_size = {
             let playback_state = playback_state.lock().unwrap();
             playback_state.buffer.capacity()
@@ -97,23 +115,43 @@ impl Photonizer {
             );
         }
 
+        let pulses = vec![
+            Pulse {
+                color: Color {
+                    r: 1.0,
+                    g: 0.0,
+                    b: 0.0,
+                },
+                position: 1.0,
+            },
+        ];
+
         Photonizer {
             playback_state,
+            options,
             plan: Plan::<f32>::new(Operation::Forward, window_size),
             window_size,
-            timer: IntervalTimer::new(update_freq_hz, true),
+            timer: IntervalTimer::new(UPDATE_FREQ_HZ, true),
             ola,
+            osc,
+
+            pulses,
+            osc_options_sent: Instant::now(),
         }
     }
 
     pub fn run(&mut self) {
+        let mut intensities = vec![0.0f32; self.window_size];
+
         loop {
-            self.update();
+            self.transform(&mut intensities);
+            self.photonize(&intensities);
+            self.send_osc(&intensities);
             self.timer.sleep_until_next_tick();
         }
     }
 
-    fn update(&mut self) {
+    fn transform(&mut self, intensities: &mut Vec<f32>) {
         let mut dft_io_data = self.playback_state.lock().unwrap().buffer.clone();
         dft::transform(&mut dft_io_data, &self.plan);
 
@@ -125,7 +163,7 @@ impl Photonizer {
         // Chosen by looking at actual output...
         let scale_factor = 1.0 / 300.0;
         let limit: f32 = 1.0;
-        let intensities: Vec<f32> = dft::unpack(&dft_io_data)
+        *intensities = dft::unpack(&dft_io_data)
             .iter()
             .map(|c| limit.min(c.norm() * scale_factor))
             .collect();
@@ -148,12 +186,33 @@ impl Photonizer {
         self.photonize(&intensities);
     }
 
+    fn send_osc(&mut self, intensities: &Vec<f32>) {
+        self.osc.send_buckets(&intensities[1..13]);
+
+        // Don't spam the network with current option values, only very new
+        // OSC listeners are interested in them.
+        if self.osc_options_sent.elapsed() > Duration::from_millis(1000) {
+            let options = self.options.lock().unwrap();
+            self.osc.send_master_intensity(options.master_intensity);
+            self.osc
+                .send_background_intensity(options.background_intensity);
+            self.osc.send_pulse_width(options.pulse_width_factor);
+            self.osc.send_pulse_speed(options.pulse_speed);
+
+            self.osc_options_sent = Instant::now();
+        }
+    }
+
     fn photonize(&mut self, intensities: &Vec<f32>) {
-        self.blink(&intensities);
+        let mode = self.options.lock().unwrap().mode;
+        match mode {
+            Mode::LightBar => self.light_bar(&intensities),
+            Mode::Pixels => self.pixel_pulses(&intensities),
+        }
         self.ola.flush();
     }
 
-    fn blink(&mut self, intensities: &Vec<f32>) {
+    fn light_bar(&mut self, intensities: &Vec<f32>) {
         let fg_color = Color {
             r: 0.4,
             g: 1.0,
@@ -164,5 +223,8 @@ impl Photonizer {
         for channel in 0..18 {
             self.ola.set_rgb(channel * 3, scaled.to_dmx());
         }
+    }
+
+    fn pixel_pulses(&mut self, intensities: &Vec<f32>) {
     }
 }
