@@ -30,9 +30,14 @@ pub enum Mode {
 pub struct PhotonizerOptions {
     pub mode: Mode,
 
+    // Simple factors in [0; 1]
     pub master_intensity: f32,
     pub background_intensity: f32,
+
+    // Step value applied every frame
     pub pulse_speed: f32,
+
+    // Factor of pi that defines how wide a pulse is
     pub pulse_width_factor: f32,
 }
 
