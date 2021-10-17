@@ -9,7 +9,5 @@ edition = "2018"
 [dependencies]
 dft = "0.5.*"
 sdl2 = "0.34.5"
-#tui = "0.15"
-#termion = "1.5"
 pulse-simple = "1.0.*"
 rosc = "~0.5"
