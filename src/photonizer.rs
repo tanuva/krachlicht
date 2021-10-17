@@ -1,6 +1,8 @@
 extern crate dft;
 
 use dft::{Operation, Plan};
+use palette::blend::{Equations, Parameter, PreAlpha};
+use palette::{Blend, FromColor, IntoColor, WithAlpha};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -9,8 +11,14 @@ use crate::olaoutput::OlaOutput;
 use crate::osc::OscSender;
 use crate::playbackstate::PlaybackState;
 
-fn to_dmx(v: f32) -> u8 {
-    (v * 255 as f32) as u8
+// TODO Implement as a trait on LinSrgb?
+fn to_dmx(srgb: palette::LinSrgb) -> [u8; 3] {
+    let components = srgb.into_components();
+    [
+        (components.0 * 255 as f32) as u8,
+        (components.1 * 255 as f32) as u8,
+        (components.2 * 255 as f32) as u8,
+    ]
 }
 
 #[derive(Clone, Copy)]
@@ -41,39 +49,9 @@ impl PhotonizerOptions {
     }
 }
 
-#[derive(Default, Clone)]
-struct Color {
-    r: f32,
-    g: f32,
-    b: f32,
-}
-
-impl Color {
-    fn scaled(&self, f: f32) -> Color {
-        Color {
-            r: self.r * f,
-            g: self.g * f,
-            b: self.b * f,
-        }
-    }
-
-    fn mix(&mut self, other: Color) {
-        self.r = (self.r + other.r) / 2.0;
-        self.g = (self.g + other.g) / 2.0;
-        self.b = (self.b + other.b) / 2.0;
-        /*self.r = 1.0f32.min(self.r + other.r);
-        self.g = 1.0f32.min(self.g + other.g);
-        self.b = 1.0f32.min(self.b + other.b);*/
-    }
-
-    fn to_dmx(&self) -> [u8; 3] {
-        [to_dmx(self.r), to_dmx(self.g), to_dmx(self.b)]
-    }
-}
-
 struct Pulse {
     position: f32,
-    color: Color,
+    color: palette::LinSrgb,
 }
 
 pub struct Photonizer {
@@ -115,16 +93,10 @@ impl Photonizer {
             );
         }
 
-        let pulses = vec![
-            Pulse {
-                color: Color {
-                    r: 1.0,
-                    g: 0.0,
-                    b: 0.0,
-                },
-                position: 1.0,
-            },
-        ];
+        let pulses = vec![Pulse {
+            color: palette::LinSrgb::new(0.0, 0.0, 0.0),
+            position: 1.0,
+        }];
 
         Photonizer {
             playback_state,
@@ -202,15 +174,11 @@ impl Photonizer {
     }
 
     fn light_bar(&mut self, intensities: &Vec<f32>) {
-        let fg_color = Color {
-            r: 0.4,
-            g: 1.0,
-            b: 0.6,
-        };
+        let fg_color = palette::LinSrgba::new(0.4, 1.0, 0.6, intensities[2]);
+        let baked_alpha: palette::LinSrgb = fg_color.into_color();
 
-        let scaled = fg_color.scaled(intensities[2]);
         for channel in 0..18 {
-            self.ola.set_rgb(channel * 3, scaled.to_dmx());
+            self.ola.set_rgb(channel * 3, to_dmx(baked_alpha));
         }
     }
 
