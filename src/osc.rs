@@ -125,6 +125,11 @@ impl OscReceiver {
                 options.mode = Mode::Pixels;
                 return true;
             }
+            "/main/static" => {
+                // TODO This could save power by disabling audio analysis
+                options.mode = Mode::Static;
+                return true;
+            }
             "/main/masterIntensity" => {
                 match self.handle_float_message(msg) {
                     Ok(intensity) => options.master_intensity = intensity,

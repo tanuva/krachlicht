@@ -2,7 +2,7 @@ extern crate dft;
 
 use dft::{Operation, Plan};
 use palette::blend::{Equations, Parameter};
-use palette::{Blend, IntoColor, WithAlpha};
+use palette::{Blend, IntoColor, LinSrgb, WithAlpha};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -25,6 +25,7 @@ fn to_dmx(srgb: palette::LinSrgb) -> [u8; 3] {
 pub enum Mode {
     LightBar,
     Pixels,
+    Static,
 }
 
 pub struct PhotonizerOptions {
@@ -179,6 +180,7 @@ impl Photonizer {
         match mode {
             Mode::LightBar => self.light_bar(&intensities),
             Mode::Pixels => self.pixel_pulses(&intensities),
+            Mode::Static => self.static_color(),
         }
         self.ola.flush();
     }
@@ -263,6 +265,16 @@ impl Photonizer {
             //println!("blended: {:?}", pixel);
             self.ola
                 .set_rgb(i as u8 * 3, to_dmx(blended * master_intensity));
+        }
+    }
+
+    fn static_color(&mut self) {
+        let master_intensity = self.options.lock().unwrap().master_intensity;
+        let color = LinSrgb::new(1.0, 0.75, 0.3);
+
+        for pixel_idx in 0..self.pixel_count {
+            self.ola
+                .set_rgb(pixel_idx as u8 * 3, to_dmx(color * master_intensity))
         }
     }
 }
