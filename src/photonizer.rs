@@ -99,8 +99,8 @@ impl Photonizer {
         }
 
         let pulses = vec![Pulse {
-            color: palette::LinSrgb::new(0.0, 0.0, 0.0),
-            position: 1.0,
+            color: palette::LinSrgb::new(1.0, 0.0, 0.0),
+            position: 0.0,
         }];
 
         Photonizer {
