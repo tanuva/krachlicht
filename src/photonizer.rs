@@ -1,8 +1,8 @@
 extern crate dft;
 
 use dft::{Operation, Plan};
-use palette::blend::{Equations, Parameter, PreAlpha};
-use palette::{Blend, FromColor, IntoColor, WithAlpha};
+use palette::blend::{Equations, Parameter};
+use palette::{Blend, IntoColor, WithAlpha};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -37,8 +37,6 @@ pub struct PhotonizerOptions {
     // Step value applied every frame
     pub pulse_speed: f32,
 
-    // Factor of pi that defines how wide a pulse is
-    pub pulse_width_factor: f32,
 }
 
 impl PhotonizerOptions {
@@ -49,7 +47,6 @@ impl PhotonizerOptions {
             master_intensity: 1.0,
             background_intensity: 0.0,
             pulse_speed: 0.1,
-            pulse_width_factor: 0.5,
         }
     }
 }
@@ -68,7 +65,10 @@ pub struct Photonizer {
     ola: OlaOutput,
     osc: OscSender,
 
+    pixel_count: usize,
+    frame_buffer: Vec<palette::LinSrgba>,
     pulses: Vec<Pulse>,
+    last_peak: f32,
     osc_options_sent: Instant,
 }
 
@@ -80,6 +80,7 @@ impl Photonizer {
         osc: OscSender,
     ) -> Photonizer {
         const UPDATE_FREQ_HZ: f32 = 30.0;
+        const PIXEL_COUNT: usize = 18;
 
         let window_size = {
             let playback_state = playback_state.lock().unwrap();
@@ -103,6 +104,8 @@ impl Photonizer {
             position: 0.0,
         }];
 
+        let black = palette::LinSrgba::new(0.0, 0.0, 0.0, 0.0);
+
         Photonizer {
             playback_state,
             options,
@@ -112,7 +115,10 @@ impl Photonizer {
             ola,
             osc,
 
+            pixel_count: PIXEL_COUNT,
+            frame_buffer: vec![black; PIXEL_COUNT],
             pulses,
+            last_peak: 0.0,
             osc_options_sent: Instant::now(),
         }
     }
@@ -162,7 +168,6 @@ impl Photonizer {
             self.osc.send_master_intensity(options.master_intensity);
             self.osc
                 .send_background_intensity(options.background_intensity);
-            self.osc.send_pulse_width(options.pulse_width_factor);
             self.osc.send_pulse_speed(options.pulse_speed);
 
             self.osc_options_sent = Instant::now();
@@ -187,6 +192,77 @@ impl Photonizer {
         }
     }
 
+    fn advance_pulses(&mut self) {
+        let pulse_speed = self.options.lock().unwrap().pulse_speed;
+
+        for pulse in &mut self.pulses {
+            pulse.position += pulse_speed;
+        }
+    }
+
+    fn remove_pulses(&mut self) {
+        // This would be nicer as a do-while loop. And feels awkward in any case.
+        let mut check_again = true;
+        while check_again {
+            check_again = false;
+
+            for i in 0..self.pulses.len() {
+                if self.pulses[i].position > self.pixel_count as f32 - 1.0 {
+                    self.pulses.remove(i);
+                    check_again = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    fn create_pulse(&mut self, intensities: &Vec<f32>) {
+        const PEAK_FALLOFF: f32 = 0.9;
+
+        let cur_val = intensities[1];
+        if cur_val > self.last_peak {
+            self.last_peak = cur_val;
+            self.pulses.push(Pulse {
+                color: palette::LinSrgb::new(1.0, 0.0, 0.0),
+                position: 0.0,
+            });
+        }
+
+        self.last_peak *= PEAK_FALLOFF;
+    }
+
     fn pixel_pulses(&mut self, intensities: &Vec<f32>) {
+        self.advance_pulses();
+        self.remove_pulses();
+        self.create_pulse(intensities);
+
+        let black = palette::LinSrgba::new(0.0, 0.0, 0.0, 1.0);
+        let blend_mode =
+            Equations::from_parameters(Parameter::SourceAlpha, Parameter::OneMinusSourceAlpha);
+
+        // Decay pass
+        for pixel in &mut self.frame_buffer {
+            pixel.alpha *= 0.5;
+        }
+
+        // Pulse draw pass
+        for pulse in &self.pulses {
+            let pos = pulse.position;
+            let pulse_speed = self.options.lock().unwrap().pulse_speed;
+
+            if (pos - pos.round()).abs() < pulse_speed {
+                self.frame_buffer[pos.round() as usize] = pulse.color.opaque();
+            }
+        }
+
+        let master_intensity = self.options.lock().unwrap().master_intensity;
+        for i in 0..self.frame_buffer.len() {
+            let pixel = self.frame_buffer[i];
+            //print!("pixel: {:?}\t", pixel);
+            let blended = pixel.blend(black, blend_mode).color;
+            //println!("blended: {:?}", pixel);
+            self.ola
+                .set_rgb(i as u8 * 3, to_dmx(blended * master_intensity));
+        }
     }
 }

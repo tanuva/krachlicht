@@ -139,13 +139,6 @@ impl OscReceiver {
                 }
                 return true;
             }
-            "/main/pulseWidth" => {
-                match self.handle_float_message(msg) {
-                    Ok(pulse_width) => options.pulse_width_factor = pulse_width,
-                    Err(msg) => println!("{}", msg),
-                }
-                return true;
-            }
             "/main/pulseSpeed" => {
                 match self.handle_float_message(msg) {
                     Ok(speed) => options.pulse_speed = speed,
