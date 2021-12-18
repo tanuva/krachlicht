@@ -229,11 +229,12 @@ impl Photonizer {
     fn create_pulse(&mut self, intensities: &Vec<f32>) {
         const PEAK_FALLOFF: f32 = 0.9;
 
+        let accent_color = self.options.lock().unwrap().accent_color;
         let cur_val = intensities[1];
         if cur_val > self.last_peak {
             self.last_peak = cur_val;
             self.pulses.push(Pulse {
-                color: palette::LinSrgb::new(1.0, 0.0, 0.0),
+                color: accent_color,
                 position: 0.0,
             });
         }
