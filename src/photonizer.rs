@@ -239,7 +239,7 @@ impl Photonizer {
     }
 
     fn create_pulse(&mut self, intensities: &Vec<f32>) {
-        const PEAK_FALLOFF: f32 = 0.9;
+        const PEAK_FALLOFF: f32 = 0.95;
 
         let accent_color = self.options.lock().unwrap().accent_color;
         let cur_val = intensities[1];
