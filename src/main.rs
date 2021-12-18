@@ -12,7 +12,6 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::thread;
-use std::time::Duration;
 
 use olaoutput::OlaOutput;
 use photonizer::Photonizer;
@@ -90,5 +89,4 @@ fn main() {
     }*/
 
     player.run();
-    std::thread::sleep(Duration::from_millis(10 * 1000));
 }

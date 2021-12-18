@@ -1,8 +1,12 @@
 extern crate sdl2;
 
 use core::panic;
+use sdl2::audio::AudioStatus::Playing;
 use sdl2::{audio::*, AudioSubsystem, Sdl};
-use std::sync::{Arc, Mutex};
+use std::{
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use crate::playbackstate::PlaybackState;
 
@@ -139,5 +143,9 @@ impl SDLPlayer {
 
     pub fn run(&self) {
         self.device.resume();
+
+        while self.device.status() == Playing {
+            std::thread::sleep(Duration::from_millis(50));
+        }
     }
 }
