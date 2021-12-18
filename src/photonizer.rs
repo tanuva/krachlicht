@@ -252,9 +252,24 @@ impl Photonizer {
             let pos = pulse.position;
             let pulse_speed = self.options.lock().unwrap().pulse_speed;
 
-            if (pos - pos.round()).abs() < pulse_speed {
-                self.frame_buffer[pos.round() as usize] = pulse.color.opaque();
-            }
+            // Interpolate pulse between the two nearest pixels
+            let trailing_pixel = if pulse_speed > 0.0 {
+                pos.floor()
+            } else {
+                pos.ceil()
+            };
+
+            let leading_pixel = if pulse_speed > 0.0 {
+                pos.ceil()
+            } else {
+                pos.floor()
+            };
+
+            let trailing_alpha = (leading_pixel - pos).abs();
+            let leading_alpha = (trailing_pixel - pos).abs();
+
+            self.frame_buffer[trailing_pixel as usize] = pulse.color.with_alpha(trailing_alpha);
+            self.frame_buffer[leading_pixel as usize] = pulse.color.with_alpha(leading_alpha);
         }
 
         let master_intensity = self.options.lock().unwrap().master_intensity;
