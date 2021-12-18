@@ -288,7 +288,7 @@ impl Photonizer {
 
     fn static_color(&mut self) {
         let master_intensity = self.options.lock().unwrap().master_intensity;
-        let color = LinSrgb::new(1.0, 0.75, 0.3);
+        let color = self.options.lock().unwrap().accent_color;
 
         for pixel_idx in 0..self.pixel_count {
             self.ola
