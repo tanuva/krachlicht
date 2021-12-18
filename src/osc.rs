@@ -5,6 +5,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use palette::FromColor;
 use rosc::{decoder, encoder, OscMessage, OscPacket, OscType};
 
 use crate::photonizer::{Mode, PhotonizerOptions};
@@ -130,6 +131,20 @@ impl OscReceiver {
                 options.mode = Mode::Static;
                 return true;
             }
+            "/main/accentColor" => {
+                match self.handle_coordinate_message(msg) {
+                    Ok(coords) => options.accent_color = self.coordinates_to_color(coords),
+                    Err(msg) => println!("{}", msg),
+                }
+                return true;
+            }
+            "/main/backgroundColor" => {
+                match self.handle_coordinate_message(msg) {
+                    Ok(coords) => options.background_color = self.coordinates_to_color(coords),
+                    Err(msg) => println!("{}", msg),
+                }
+                return true;
+            }
             "/main/masterIntensity" => {
                 match self.handle_float_message(msg) {
                     Ok(intensity) => options.master_intensity = intensity,
@@ -174,5 +189,37 @@ impl OscReceiver {
         } else {
             return Err(format!("{} Missing OSC parameter: float", msg.addr));
         }
+    }
+
+    fn handle_coordinate_message(&self, msg: &OscMessage) -> Result<(f32, f32), String> {
+        if msg.args.len() != 2 {
+            return Err(format!("{} expected two float parameters", msg.addr));
+        }
+
+        let mut coords = (0.0, 0.0);
+
+        if let Some(arg) = msg.args.get(0) {
+            let result = self.extract_float_argument(msg, arg);
+            match result {
+                Ok(value) => coords.0 = value,
+                Err(msg) => return Err(msg),
+            }
+        }
+        if let Some(arg) = msg.args.get(1) {
+            let result = self.extract_float_argument(msg, arg);
+            match result {
+                Ok(value) => coords.1 = value,
+                Err(msg) => return Err(msg),
+            }
+        }
+
+        return Ok(coords);
+    }
+
+    fn coordinates_to_color(&self, coords: (f32, f32)) -> palette::LinSrgb {
+        let hue = coords.0 * 360.0;
+        let saturation = 1.0 - coords.1;
+        let hsv = palette::Hsv::new(hue, saturation, 1.0);
+        return palette::Srgb::from_color(hsv).into_linear();
     }
 }

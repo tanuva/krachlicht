@@ -37,7 +37,8 @@ pub struct PhotonizerOptions {
 
     // Step value applied every frame
     pub pulse_speed: f32,
-
+    pub accent_color: palette::LinSrgb,
+    pub background_color: palette::LinSrgb,
 }
 
 impl PhotonizerOptions {
@@ -48,6 +49,8 @@ impl PhotonizerOptions {
             master_intensity: 1.0,
             background_intensity: 0.0,
             pulse_speed: 0.1,
+            accent_color: LinSrgb::new(0.0, 1.0, 0.0),
+            background_color: LinSrgb::new(0.0, 0.0, 0.0),
         }
     }
 }
