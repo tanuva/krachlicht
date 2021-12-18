@@ -89,8 +89,12 @@ impl OscReceiver {
             match self.sock.recv_from(&mut buf) {
                 Ok((size, addr)) => {
                     println!("Received packet with size {} from: {}", size, addr);
-                    let packet = decoder::decode(&buf[..size]).unwrap();
-                    self.handle_packet(packet);
+                    match decoder::decode(&buf[..size]) {
+                        Ok(packet) => self.handle_packet(packet),
+                        Err(error) => {
+                            println!("Failed to decode OSC packet: {}", error.to_string())
+                        }
+                    }
                 }
                 Err(e) => {
                     println!("Error receiving from socket: {}", e);
