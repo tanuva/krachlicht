@@ -70,7 +70,6 @@ pub struct Photonizer {
     osc: OscSender,
 
     pixel_count: usize,
-    frame_buffer: Vec<palette::LinSrgba>,
     pulses: Vec<Pulse>,
     last_peak: f32,
     osc_options_sent: Instant,
@@ -120,7 +119,6 @@ impl Photonizer {
             osc,
 
             pixel_count: PIXEL_COUNT,
-            frame_buffer: vec![black; PIXEL_COUNT],
             pulses,
             last_peak: 0.0,
             osc_options_sent: Instant::now(),
@@ -270,11 +268,7 @@ impl Photonizer {
         let black = palette::LinSrgba::new(0.0, 0.0, 0.0, 1.0);
         let blend_mode =
             Equations::from_parameters(Parameter::SourceAlpha, Parameter::OneMinusSourceAlpha);
-
-        // Decay pass
-        for pixel in &mut self.frame_buffer {
-            pixel.alpha *= 0.5;
-        }
+        let mut frame_buffer = vec![black; self.pixel_count];
 
         // Pulse draw pass
         for pulse in &self.pulses {
@@ -297,13 +291,22 @@ impl Photonizer {
             let trailing_alpha = (leading_pixel - pos).abs();
             let leading_alpha = (trailing_pixel - pos).abs();
 
-            self.frame_buffer[trailing_pixel as usize] = pulse.color.with_alpha(trailing_alpha);
-            self.frame_buffer[leading_pixel as usize] = pulse.color.with_alpha(leading_alpha);
+            frame_buffer[trailing_pixel as usize] = pulse
+                .color
+                .with_alpha(trailing_alpha)
+                .blend(frame_buffer[trailing_pixel as usize], blend_mode);
+            frame_buffer[leading_pixel as usize] = pulse
+                .color
+                .with_alpha(leading_alpha)
+                .blend(frame_buffer[leading_pixel as usize], blend_mode);
+
+            // TODO Draw pulse trail?
+            //let pulse_length = 3.0f32;
         }
 
         let master_intensity = self.options.lock().unwrap().master_intensity;
-        for i in 0..self.frame_buffer.len() {
-            let pixel = self.frame_buffer[i];
+        for i in 0..frame_buffer.len() {
+            let pixel = frame_buffer[i];
             //print!("pixel: {:?}\t", pixel);
             let blended = pixel.blend(black, blend_mode).color;
             //println!("blended: {:?}", pixel);
