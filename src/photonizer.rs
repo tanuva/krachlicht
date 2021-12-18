@@ -189,7 +189,12 @@ impl Photonizer {
     }
 
     fn light_bar(&mut self, intensities: &Vec<f32>) {
-        let fg_color = palette::LinSrgba::new(0.4, 1.0, 0.6, intensities[2]);
+        let fg_color = self
+            .options
+            .lock()
+            .unwrap()
+            .accent_color
+            .with_alpha(intensities[2]);
         let baked_alpha: palette::LinSrgb = fg_color.into_color();
 
         for channel in 0..18 {
