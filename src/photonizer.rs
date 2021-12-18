@@ -246,6 +246,12 @@ impl Photonizer {
         let accent_color = self.options.lock().unwrap().accent_color;
         let cur_val = intensities[1];
         if cur_val > self.last_peak {
+            if let Some(last_pulse) = self.pulses.last() {
+                if last_pulse.position < 1.0 {
+                    return;
+                }
+            }
+
             self.last_peak = cur_val;
             self.pulses.push(Pulse {
                 color: accent_color,
