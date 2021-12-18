@@ -189,17 +189,31 @@ impl Photonizer {
     }
 
     fn light_bar(&mut self, intensities: &Vec<f32>) {
-        let fg_color = self
+        const PEAK_FALLOFF: f32 = 0.90;
+
+        let cur_val = intensities[2].clamp(0.0, 1.0);
+        if cur_val > self.last_peak {
+            self.last_peak = cur_val;
+        }
+
+        let blend_mode =
+            Equations::from_parameters(Parameter::SourceAlpha, Parameter::OneMinusSourceAlpha);
+        let black = palette::LinSrgba::new(0.0, 0.0, 0.0, 1.0);
+        let accent_color = self
             .options
             .lock()
             .unwrap()
             .accent_color
-            .with_alpha(intensities[2]);
-        let baked_alpha: palette::LinSrgb = fg_color.into_color();
+            .with_alpha(self.last_peak);
+        let blended = accent_color.blend(black, blend_mode).color;
+        let master_intensity = self.options.lock().unwrap().master_intensity;
 
-        for channel in 0..18 {
-            self.ola.set_rgb(channel * 3, to_dmx(baked_alpha));
+        for pixel in 0..18 {
+            self.ola
+                .set_rgb(pixel * 3, to_dmx(blended * master_intensity));
         }
+
+        self.last_peak *= PEAK_FALLOFF;
     }
 
     fn advance_pulses(&mut self) {
