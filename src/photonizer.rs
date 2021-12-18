@@ -48,7 +48,7 @@ impl PhotonizerOptions {
 
             master_intensity: 1.0,
             background_intensity: 0.0,
-            pulse_speed: 0.1,
+            pulse_speed: 0.6,
             accent_color: LinSrgb::new(0.0, 1.0, 0.0),
             background_color: LinSrgb::new(0.0, 0.0, 0.0),
         }
