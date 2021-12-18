@@ -157,16 +157,20 @@ impl OscReceiver {
         }
     }
 
+    fn extract_float_argument(&self, msg: &OscMessage, arg: &OscType) -> Result<f32, String> {
+        if let OscType::Float(value) = arg {
+            return Ok(*value);
+        } else {
+            return Err(format!(
+                "{} Unexpected OSC parameter type: {:?}",
+                msg.addr, arg
+            ));
+        }
+    }
+
     fn handle_float_message(&self, msg: &OscMessage) -> Result<f32, String> {
         if let Some(arg) = msg.args.first() {
-            if let OscType::Float(intensity) = arg {
-                return Ok(*intensity);
-            } else {
-                return Err(format!(
-                    "{} Unexpected OSC parameter type: {:?}",
-                    msg.addr, arg
-                ));
-            }
+            return self.extract_float_argument(msg, arg);
         } else {
             return Err(format!("{} Missing OSC parameter: float", msg.addr));
         }
