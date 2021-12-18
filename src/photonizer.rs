@@ -242,7 +242,7 @@ impl Photonizer {
         const PEAK_FALLOFF: f32 = 0.95;
 
         let accent_color = self.options.lock().unwrap().accent_color;
-        let cur_val = intensities[1];
+        let cur_val = intensities[2].clamp(0.0, 1.0);
         if cur_val > self.last_peak {
             if let Some(last_pulse) = self.pulses.last() {
                 if last_pulse.position < 1.0 {
