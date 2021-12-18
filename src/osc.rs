@@ -1,5 +1,4 @@
 use std::{
-    default,
     net::{SocketAddr, UdpSocket},
     str::FromStr,
     sync::{Arc, Mutex},
