@@ -26,7 +26,7 @@ use crate::photonizer::PhotonizerOptions;
 
 fn main() {
     let osc_listen_addr = SocketAddr::from_str("0.0.0.0:8000").unwrap();
-    let osc_dst_addr = SocketAddr::from_str("192.168.87.189:9000").unwrap();
+    let osc_dst_addr = SocketAddr::from_str("192.168.0.141:9000").unwrap();
 
     let window_size = 1024;
     let playback_state = Arc::new(Mutex::new(PlaybackState::new(window_size)));
