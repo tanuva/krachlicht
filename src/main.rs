@@ -5,7 +5,6 @@ pub(crate) mod photonizer;
 pub(crate) mod playbackstate;
 pub(crate) mod pulseinput;
 pub(crate) mod sdlplayer;
-//pub(crate) mod ui;
 
 use std::net::SocketAddr;
 use std::str::FromStr;
@@ -22,7 +21,6 @@ use sdlplayer::SDLPlayer;
 use crate::osc::OscReceiver;
 use crate::osc::OscSender;
 use crate::photonizer::PhotonizerOptions;
-//use ui::UI;
 
 fn main() {
     let osc_listen_addr = SocketAddr::from_str("0.0.0.0:8000").unwrap();
@@ -54,7 +52,6 @@ fn main() {
         ola,
         osc_sender,
     );
-    //let mut ui = UI::new(Arc::clone(&playback_state));
 
     let osc_receiver = match OscReceiver::new(osc_listen_addr, Arc::clone(&photonizer_options)) {
         Ok(osc_receiver) => osc_receiver,
@@ -78,15 +75,6 @@ fn main() {
     if let Err(error) = res {
         panic!("Failed to create thread: {}", error);
     }
-
-    /*let res = thread::Builder::new()
-        .name("UI".to_string())
-        .spawn(move || {
-            ui.run();
-        });
-    if let Err(error) = res {
-        panic!("Failed to create thread: {}", error);
-    }*/
 
     player.run();
 }
