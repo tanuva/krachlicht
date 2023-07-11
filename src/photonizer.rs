@@ -1,8 +1,8 @@
 extern crate dft;
 
 use dft::{Operation, Plan};
-use palette::blend::{Equations, Parameter};
-use palette::{Blend, IntoColor, LinSrgb, WithAlpha};
+use palette::blend::Blend;
+use palette::{LinSrgb, WithAlpha};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -107,8 +107,6 @@ impl Photonizer {
             position: 0.0,
         }];
 
-        let black = palette::LinSrgba::new(0.0, 0.0, 0.0, 0.0);
-
         Photonizer {
             playback_state,
             options,
@@ -194,8 +192,6 @@ impl Photonizer {
             self.last_peak = cur_val;
         }
 
-        let blend_mode =
-            Equations::from_parameters(Parameter::SourceAlpha, Parameter::OneMinusSourceAlpha);
         let black = palette::LinSrgba::new(0.0, 0.0, 0.0, 1.0);
         let accent_color = self
             .options
@@ -203,7 +199,7 @@ impl Photonizer {
             .unwrap()
             .accent_color
             .with_alpha(self.last_peak);
-        let blended = accent_color.blend(black, blend_mode).color;
+        let blended = black.overlay(accent_color).color;
         let master_intensity = self.options.lock().unwrap().master_intensity;
 
         for pixel in 0..18 {
@@ -266,8 +262,6 @@ impl Photonizer {
         self.create_pulse(intensities);
 
         let black = palette::LinSrgba::new(0.0, 0.0, 0.0, 1.0);
-        let blend_mode =
-            Equations::from_parameters(Parameter::SourceAlpha, Parameter::OneMinusSourceAlpha);
         let mut frame_buffer = vec![black; self.pixel_count];
 
         // Pulse draw pass
@@ -291,14 +285,10 @@ impl Photonizer {
             let trailing_alpha = (leading_pixel - pos).abs();
             let leading_alpha = (trailing_pixel - pos).abs();
 
-            frame_buffer[trailing_pixel as usize] = pulse
-                .color
-                .with_alpha(trailing_alpha)
-                .blend(frame_buffer[trailing_pixel as usize], blend_mode);
-            frame_buffer[leading_pixel as usize] = pulse
-                .color
-                .with_alpha(leading_alpha)
-                .blend(frame_buffer[leading_pixel as usize], blend_mode);
+            frame_buffer[trailing_pixel as usize] = frame_buffer[trailing_pixel as usize]
+                .overlay(pulse.color.with_alpha(trailing_alpha));
+            frame_buffer[leading_pixel as usize] =
+                frame_buffer[leading_pixel as usize].overlay(pulse.color.with_alpha(leading_alpha));
 
             // TODO Draw pulse trail?
             //let pulse_length = 3.0f32;
@@ -308,7 +298,7 @@ impl Photonizer {
         for i in 0..frame_buffer.len() {
             let pixel = frame_buffer[i];
             //print!("pixel: {:?}\t", pixel);
-            let blended = pixel.blend(black, blend_mode).color;
+            let blended = black.overlay(pixel).color;
             //println!("blended: {:?}", pixel);
             self.ola
                 .set_rgb(i as u8 * 3, to_dmx(blended * master_intensity));

@@ -9,6 +9,6 @@ edition = "2021"
 [dependencies]
 dft = "0.5.*"
 sdl2 = "0.35.*"
-palette = "0.6.*"
+palette = "0.7.*"
 pulse-simple = "1.0.*"
 rosc = "0.5.*"
