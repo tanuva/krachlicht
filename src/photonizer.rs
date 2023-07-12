@@ -315,3 +315,54 @@ impl Photonizer {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Translated from https://floating-point-gui.de/errors/comparison/
+    fn nearly_equal(a: f32, b: f32, epsilon: f32) -> bool {
+        let abs_a = a.abs();
+        let abs_b = b.abs();
+        let diff = (a - b).abs();
+
+        if a == b {
+            // shortcut, handles infinities
+            return true;
+        } else if a == 0.0 || b == 0.0 || f32::is_subnormal(abs_a + abs_b) {
+            // a or b is zero or both are extremely close to it
+            // relative error is less meaningful here
+            return diff < (epsilon * f32::MIN);
+        } else {
+            // use relative error
+            return diff / (abs_a + abs_b).min(f32::MAX) < epsilon;
+        }
+    }
+
+    #[test]
+    fn blah() {
+        let black = palette::LinSrgb::new(0.0f32, 0.0, 0.0).opaque();
+        let mut pixel = palette::LinSrgb::new(1.0, 0.0, 0.0).opaque();
+
+        pixel.alpha = 0.25;
+        let result_25 = black.overlay(pixel);
+        assert!(nearly_equal(result_25.red, 0.25, 0.01));
+        assert!(nearly_equal(result_25.green, 0.0, 0.01));
+        assert!(nearly_equal(result_25.blue, 0.0, 0.01));
+        assert!(nearly_equal(result_25.alpha, 1.0, 0.01));
+
+        pixel.alpha = 0.50;
+        let result_50 = black.overlay(pixel);
+        assert!(nearly_equal(result_50.red, 0.50, 0.01));
+        assert!(nearly_equal(result_50.green, 0.0, 0.01));
+        assert!(nearly_equal(result_50.blue, 0.0, 0.01));
+        assert!(nearly_equal(result_50.alpha, 1.0, 0.01));
+
+        pixel.alpha = 0.80;
+        let result_80 = black.overlay(pixel);
+        assert!(nearly_equal(result_80.red, 0.80, 0.01));
+        assert!(nearly_equal(result_80.green, 0.0, 0.01));
+        assert!(nearly_equal(result_80.blue, 0.0, 0.01));
+        assert!(nearly_equal(result_80.alpha, 1.0, 0.01));
+    }
+}
