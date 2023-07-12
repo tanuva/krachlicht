@@ -21,7 +21,7 @@ fn to_dmx(srgb: palette::LinSrgb) -> [u8; 3] {
     ]
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum Mode {
     LightBar,
     Pixels,
