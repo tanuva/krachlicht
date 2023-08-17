@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use pulse_simple::Record;
 
-use crate::playbackstate::PlaybackState;
+use crate::{audiosource::AudioSource, playbackstate::PlaybackState};
 
 pub struct PulseInput {
     playback_state: Arc<Mutex<PlaybackState>>,
@@ -35,8 +35,10 @@ impl PulseInput {
             buffer,
         }
     }
+}
 
-    pub fn run(&mut self) {
+impl AudioSource for PulseInput {
+    fn run(&mut self) {
         loop {
             self.pulse.read(&mut self.buffer[..]);
             (*self.playback_state.lock().unwrap()).buffer =

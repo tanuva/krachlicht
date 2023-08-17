@@ -1,3 +1,4 @@
+pub(crate) mod audiosource;
 pub(crate) mod intervaltimer;
 pub(crate) mod olaoutput;
 pub(crate) mod osc;
@@ -18,6 +19,7 @@ use playbackstate::PlaybackState;
 use pulseinput::PulseInput;
 use sdlplayer::SDLPlayer;
 
+use crate::audiosource::AudioSource;
 use crate::osc::OscReceiver;
 use crate::osc::OscSender;
 use crate::photonizer::PhotonizerOptions;

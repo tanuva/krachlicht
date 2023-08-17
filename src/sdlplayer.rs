@@ -8,6 +8,7 @@ use std::{
     time::Duration,
 };
 
+use crate::audiosource::AudioSource;
 use crate::playbackstate::PlaybackState;
 
 fn u8_to_i16(v: &[u8]) -> &[i16] {
@@ -140,8 +141,10 @@ impl SDLPlayer {
             device,
         }
     }
+}
 
-    pub fn run(&self) {
+impl AudioSource for SDLPlayer {
+    fn run(&mut self) {
         self.device.resume();
 
         while self.device.status() == Playing {
