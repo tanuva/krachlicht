@@ -13,7 +13,7 @@ pub struct PulseInput {
 }
 
 impl PulseInput {
-    pub fn new(playback_state: Arc<Mutex<PlaybackState>>, device: String) -> Self {
+    pub fn new(playback_state: Arc<Mutex<PlaybackState>>, device: &str) -> Self {
         let sample_rate = 44100;
         let pulse = Record::new(
             "krachlicht",
