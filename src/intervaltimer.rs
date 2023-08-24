@@ -31,7 +31,7 @@ impl IntervalTimer {
         let next_tick = if self.last_tick + self.interval > Instant::now() {
             self.last_tick + self.interval
         } else {
-            println!("Photonizer skipped a frame");
+            log::warn!("Skipped a frame");
             Instant::now() + self.interval
         };
 

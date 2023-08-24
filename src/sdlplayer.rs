@@ -1,8 +1,13 @@
 extern crate sdl2;
 
 use core::panic;
+use log::error;
 use sdl2::audio::AudioStatus::Playing;
-use sdl2::{audio::*, AudioSubsystem, Sdl};
+use sdl2::{
+    audio::{self, *},
+    AudioSubsystem, Sdl,
+};
+use std::process;
 use std::{
     sync::{Arc, Mutex},
     time::Duration,
@@ -105,7 +110,8 @@ impl SDLPlayer {
             || wav_file_spec.format != AudioFormat::S16LSB
             || wav_file_spec.freq != 44100
         {
-            panic!("WAV file needs to be s16le, 44100 kHz, mono.");
+            error!("WAV file needs to be s16le, 44100 kHz, mono.");
+            process::exit(1);
         }
 
         u8_to_i16(wav_file_spec.buffer()).to_vec()
@@ -113,9 +119,13 @@ impl SDLPlayer {
 
     pub fn new(file_path: &str, playback_state: Arc<Mutex<PlaybackState>>) -> SDLPlayer {
         let sdl_context = sdl2::init().expect("Cannot initialize SDL2 🤷‍♀️");
-        let sdl_audio = sdl_context
-            .audio()
-            .expect("Cannot init SDL audio: {error_msg}");
+        let sdl_audio = match sdl_context.audio() {
+            Ok(audio) => audio,
+            Err(msg) => {
+                error!("Cannot init SDL audio: {msg}");
+                process::exit(1);
+            }
+        };
         let samples = SDLPlayer::get_samples_from_file(file_path);
         let desired_spec = AudioSpecDesired {
             freq: Some(44100),
@@ -123,17 +133,22 @@ impl SDLPlayer {
             samples: None, // Default sample buffer size
         };
 
-        let device = sdl_audio
-            .open_playback(None, &desired_spec, |spec| {
-                if spec.freq != desired_spec.freq.expect("No desired freq?!")
-                    || spec.channels != desired_spec.channels.expect("No desired channel count?!")
-                {
-                    panic!("Actual AudioSpec does not match desired spec.");
-                }
+        let device = match sdl_audio.open_playback(None, &desired_spec, |spec| {
+            if spec.freq != desired_spec.freq.expect("No desired freq?!")
+                || spec.channels != desired_spec.channels.expect("No desired channel count?!")
+            {
+                error!("Actual AudioSpec does not match desired spec.");
+                process::exit(1);
+            }
 
-                WavFileCallback::new(samples, playback_state)
-            })
-            .expect("Cannot open audio device: {error_msg}");
+            WavFileCallback::new(samples, playback_state)
+        }) {
+            Ok(device) => device,
+            Err(msg) => {
+                error!("Cannot open audio device: {msg}");
+                process::exit(1);
+            }
+        };
 
         SDLPlayer {
             _sdl_context: sdl_context,

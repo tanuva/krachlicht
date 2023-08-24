@@ -9,6 +9,7 @@ pub(crate) mod sdlplayer;
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
+use std::process;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -16,6 +17,7 @@ use std::thread;
 
 use clap::Parser;
 use config_file::FromConfigFile;
+use log::{debug, error, info};
 use olaoutput::OlaOutput;
 use photonizer::Photonizer;
 use playbackstate::PlaybackState;
@@ -116,15 +118,22 @@ fn create_player(
 }
 
 fn main() {
+    env_logger::init();
 
     let args = Cli::parse();
     let disk_config = match read_config(&args) {
         Ok(disk_config) => disk_config,
-        Err(msg) => panic!("{}", msg),
+        Err(msg) => {
+            error!("{}", msg);
+            process::exit(1);
+        }
     };
     let config = match validate_config(&args, &disk_config) {
         Ok(config) => config,
-        Err(msg) => panic!("Failed to validate configuration: {}", msg),
+        Err(msg) => {
+            error!("Failed to validate configuration: {}", msg);
+            process::exit(1);
+        }
     };
 
     let photonizer_options = Arc::new(Mutex::new(PhotonizerOptions::new()));
@@ -133,17 +142,26 @@ fn main() {
     let playback_state = Arc::new(Mutex::new(PlaybackState::new(window_size)));
     let mut player = match create_player(&config, Arc::clone(&playback_state)) {
         Ok(player) => player,
-        Err(err) => panic!("Cannot set up audio source: {}", err),
+        Err(err) => {
+            error!("Cannot set up audio source: {}", err);
+            process::exit(1);
+        }
     };
 
     let ola = match OlaOutput::new(config.ola_host_addr) {
         Ok(ola) => ola,
-        Err(msg) => panic!("Cannot set up OLA output: {}", msg),
+        Err(msg) => {
+            error!("Cannot set up OLA output: {}", msg);
+            process::exit(1);
+        }
     };
 
     let osc_sender = match OscSender::new(config.osc_dst_addr) {
         Ok(osc_sender) => osc_sender,
-        Err(msg) => panic!("Cannot set up OSC: {}", msg),
+        Err(msg) => {
+            error!("Cannot set up OSC publisher: {}", msg);
+            process::exit(1);
+        }
     };
 
     let mut photonizer = Photonizer::new(
@@ -156,7 +174,10 @@ fn main() {
     let osc_receiver =
         match OscReceiver::new(config.osc_listen_addr, Arc::clone(&photonizer_options)) {
             Ok(osc_receiver) => osc_receiver,
-            Err(msg) => panic!("Cannot set up OSC: {}", msg),
+            Err(msg) => {
+                error!("Cannot set up OSC receiver: {}", msg);
+                process::exit(1);
+            }
         };
 
     let res = thread::Builder::new()
@@ -164,8 +185,9 @@ fn main() {
         .spawn(move || {
             photonizer.run();
         });
-    if let Err(error) = res {
-        panic!("Failed to create thread: {}", error);
+    if let Err(err) = res {
+        error!("Failed to create thread: {}", err);
+        process::exit(1);
     }
 
     let res = thread::Builder::new()
@@ -173,8 +195,9 @@ fn main() {
         .spawn(move || {
             osc_receiver.run();
         });
-    if let Err(error) = res {
-        panic!("Failed to create thread: {}", error);
+    if let Err(err) = res {
+        error!("Failed to create thread: {}", err);
+        process::exit(1);
     }
 
     player.run();
