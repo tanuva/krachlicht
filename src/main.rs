@@ -37,11 +37,11 @@ struct Cli {
     config_file_path: Option<PathBuf>,
 
     /// The s16le wav file to play
-    #[arg(short, long, value_name = "FILE")]
+    #[arg(short = 'f', long, value_name = "FILE")]
     sound_file_path: Option<PathBuf>,
 
     /// The PulseAudio device to listen on
-    #[arg(short, long, value_name = "DEVICE")]
+    #[arg(short = 'd', long, value_name = "DEVICE")]
     pa_device: Option<String>,
 }
 
