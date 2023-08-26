@@ -40,7 +40,9 @@ impl OscSender {
             args: osc_intensities,
         }))
         .unwrap();
-        self.sock.send_to(&msg_buf, self.dst_addr).unwrap();
+        if let Err(err) = self.sock.send_to(&msg_buf, self.dst_addr) {
+            log::debug!("Failed to send OSC data: {err}");
+        }
     }
 
     pub fn send_master_intensity(&self, intensity: f32) {
@@ -65,7 +67,9 @@ impl OscSender {
             args: vec![OscType::Float(v)],
         }))
         .unwrap();
-        self.sock.send_to(&msg_buf, self.dst_addr).unwrap();
+        if let Err(err) = self.sock.send_to(&msg_buf, self.dst_addr) {
+            log::debug!("Failed to send OSC data: {err}");
+        }
     }
 }
 
