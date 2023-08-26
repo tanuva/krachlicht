@@ -41,8 +41,12 @@ impl AudioSource for PulseInput {
     fn run(&mut self) {
         loop {
             self.pulse.read(&mut self.buffer[..]);
-            (*self.playback_state.lock().unwrap()).buffer =
-                self.buffer.iter().map(|v| v[0]).collect();
+            let mut playback_state = self.playback_state.lock().unwrap();
+            playback_state.buffer = self.buffer.iter().map(|v| v[0]).collect();
+
+            if playback_state.shutdown {
+                break;
+            }
         }
     }
 }

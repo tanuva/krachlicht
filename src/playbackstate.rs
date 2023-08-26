@@ -1,5 +1,7 @@
 #[derive(Clone)]
 pub struct PlaybackState {
+    pub shutdown: bool,
+
     pub buffer: Vec<f32>,
 
     pub bucket_count: usize,
@@ -14,6 +16,8 @@ impl PlaybackState {
         }
 
         PlaybackState {
+            shutdown: false,
+
             buffer,
 
             bucket_count: 0,

@@ -99,6 +99,7 @@ pub struct SDLPlayer {
     _sdl_context: Sdl,
     _sdl_audio: AudioSubsystem,
     device: AudioDevice<WavFileCallback>,
+    playback_state: Arc<Mutex<PlaybackState>>,
 }
 
 impl SDLPlayer {
@@ -141,7 +142,7 @@ impl SDLPlayer {
                 process::exit(1);
             }
 
-            WavFileCallback::new(samples, playback_state)
+            WavFileCallback::new(samples, Arc::clone(&playback_state))
         }) {
             Ok(device) => device,
             Err(msg) => {
@@ -154,6 +155,7 @@ impl SDLPlayer {
             _sdl_context: sdl_context,
             _sdl_audio: sdl_audio,
             device,
+            playback_state,
         }
     }
 }
@@ -164,6 +166,10 @@ impl AudioSource for SDLPlayer {
 
         while self.device.status() == Playing {
             std::thread::sleep(Duration::from_millis(50));
+
+            if self.playback_state.lock().unwrap().shutdown {
+                break;
+            }
         }
     }
 }

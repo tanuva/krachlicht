@@ -180,6 +180,15 @@ fn main() {
             }
         };
 
+    ctrlc::set_handler(move || {
+        info!("Interrupted, shutting down...");
+        let mut options = photonizer_options.lock().unwrap();
+        options.shutdown = true;
+        let mut state = playback_state.lock().unwrap();
+        state.shutdown = true;
+    })
+    .expect("Error setting Ctrl-C handler");
+
     let res = thread::Builder::new()
         .name("Photonizer".to_string())
         .spawn(move || {
