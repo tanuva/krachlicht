@@ -47,7 +47,9 @@ impl OlaOutput {
             args: vec![OscType::Blob(Vec::clone(&self.buffer))],
         }))
         .unwrap();
-        self.sock.send_to(&msg_buf, self.target_addr).unwrap();
+        if let Err(err) = self.sock.send_to(&msg_buf, self.target_addr) {
+            log::warn!("Failed to send OSC data: {err}");
+        }
         self.blackout();
     }
 
