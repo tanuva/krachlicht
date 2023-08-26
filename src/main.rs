@@ -30,6 +30,7 @@ use crate::osc::OscReceiver;
 use crate::osc::OscSender;
 use crate::photonizer::PhotonizerOptions;
 
+/// krachlicht creates blinkenlights from sound
 #[derive(Parser)]
 struct Cli {
     /// Configuration file path
