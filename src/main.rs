@@ -18,7 +18,7 @@ use std::thread;
 
 use clap::Parser;
 use config_file::FromConfigFile;
-use log::{debug, error, info};
+use log;
 use mqtt::MqttClient;
 use olaoutput::OlaOutput;
 use photonizer::Photonizer;
@@ -136,14 +136,14 @@ fn main() {
     let disk_config = match read_config(&args) {
         Ok(disk_config) => disk_config,
         Err(msg) => {
-            error!("{}", msg);
+            log::error!("{}", msg);
             process::exit(1);
         }
     };
     let config = match validate_config(&args, &disk_config) {
         Ok(config) => config,
         Err(msg) => {
-            error!("Failed to validate configuration: {}", msg);
+            log::error!("Failed to validate configuration: {}", msg);
             process::exit(1);
         }
     };
@@ -155,7 +155,7 @@ fn main() {
     let mut player = match create_player(&config, Arc::clone(&playback_state)) {
         Ok(player) => player,
         Err(err) => {
-            error!("Cannot set up audio source: {}", err);
+            log::error!("Cannot set up audio source: {}", err);
             process::exit(1);
         }
     };
@@ -163,7 +163,7 @@ fn main() {
     let ola = match OlaOutput::new(config.ola_host_addr) {
         Ok(ola) => ola,
         Err(msg) => {
-            error!("Cannot set up OLA output: {}", msg);
+            log::error!("Cannot set up OLA output: {}", msg);
             process::exit(1);
         }
     };
@@ -171,7 +171,7 @@ fn main() {
     let osc_sender = match OscSender::new(config.osc_dst_addr) {
         Ok(osc_sender) => osc_sender,
         Err(msg) => {
-            error!("Cannot set up OSC publisher: {}", msg);
+            log::error!("Cannot set up OSC publisher: {}", msg);
             process::exit(1);
         }
     };
@@ -187,7 +187,7 @@ fn main() {
         match OscReceiver::new(config.osc_listen_addr, Arc::clone(&photonizer_options)) {
             Ok(osc_receiver) => osc_receiver,
             Err(msg) => {
-                error!("Cannot set up OSC receiver: {}", msg);
+                log::error!("Cannot set up OSC receiver: {}", msg);
                 process::exit(1);
             }
         };
@@ -200,13 +200,13 @@ fn main() {
     ) {
         Ok(mqtt_client) => mqtt_client,
         Err(msg) => {
-            error!("Cannot set up MQTT client: {msg}");
+            log::error!("Cannot set up MQTT client: {msg}");
             process::exit(1);
         }
     };
 
     ctrlc::set_handler(move || {
-        info!("Interrupted, shutting down...");
+        log::info!("Interrupted, shutting down...");
         let mut options = photonizer_options.lock().unwrap();
         options.shutdown = true;
         let mut state = playback_state.lock().unwrap();
@@ -220,7 +220,7 @@ fn main() {
             photonizer.run();
         });
     if let Err(err) = res {
-        error!("Failed to create thread: {}", err);
+        log::error!("Failed to create thread: {}", err);
         process::exit(1);
     }
 
@@ -230,7 +230,7 @@ fn main() {
             osc_receiver.run();
         });
     if let Err(err) = res {
-        error!("Failed to create thread: {}", err);
+        log::error!("Failed to create thread: {}", err);
         process::exit(1);
     }
 
@@ -240,7 +240,7 @@ fn main() {
             mqtt_client.run();
         });
     if let Err(err) = res {
-        error!("Failed to create thread: {}", err);
+        log::error!("Failed to create thread: {}", err);
         process::exit(1);
     }
 
