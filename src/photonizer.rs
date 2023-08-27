@@ -30,6 +30,7 @@ pub enum Mode {
 
 pub struct PhotonizerOptions {
     pub shutdown: bool, // FIXME This doesn't technically belong here
+    pub enabled: bool,
     pub mode: Mode,
 
     // Simple factors in [0; 1]
@@ -46,6 +47,7 @@ impl PhotonizerOptions {
     pub fn new() -> PhotonizerOptions {
         PhotonizerOptions {
             shutdown: false,
+            enabled: true,
             mode: Mode::Pixels,
 
             master_intensity: 1.0,

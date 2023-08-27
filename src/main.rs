@@ -1,5 +1,6 @@
 pub(crate) mod audiosource;
 pub(crate) mod intervaltimer;
+pub(crate) mod mqtt;
 pub(crate) mod olaoutput;
 pub(crate) mod osc;
 pub(crate) mod photonizer;
@@ -18,6 +19,7 @@ use std::thread;
 use clap::Parser;
 use config_file::FromConfigFile;
 use log::{debug, error, info};
+use mqtt::MqttClient;
 use olaoutput::OlaOutput;
 use photonizer::Photonizer;
 use playbackstate::PlaybackState;
@@ -55,6 +57,10 @@ struct Config {
     osc_dst_addr: SocketAddr,
 
     ola_host_addr: SocketAddr,
+
+    mqtt_broker_url: String, // TODO Proper URL type?
+    mqtt_discovery_prefix: String,
+    mqtt_unique_id: String,
 }
 
 fn read_config(args: &Cli) -> Result<Config, String> {
@@ -91,7 +97,12 @@ fn validate_config(args: &Cli, disk_config: &Config) -> Result<Config, String> {
         },
         osc_listen_addr: disk_config.osc_listen_addr,
         osc_dst_addr: disk_config.osc_dst_addr,
+
         ola_host_addr: disk_config.ola_host_addr,
+
+        mqtt_broker_url: disk_config.mqtt_broker_url.clone(),
+        mqtt_discovery_prefix: disk_config.mqtt_discovery_prefix.clone(),
+        mqtt_unique_id: disk_config.mqtt_unique_id.clone(),
     };
 
     return Ok(config);
@@ -181,6 +192,19 @@ fn main() {
             }
         };
 
+    let mqtt_client = match MqttClient::new(
+        &config.mqtt_broker_url,
+        &config.mqtt_discovery_prefix,
+        &config.mqtt_unique_id,
+        Arc::clone(&photonizer_options),
+    ) {
+        Ok(mqtt_client) => mqtt_client,
+        Err(msg) => {
+            error!("Cannot set up MQTT client: {msg}");
+            process::exit(1);
+        }
+    };
+
     ctrlc::set_handler(move || {
         info!("Interrupted, shutting down...");
         let mut options = photonizer_options.lock().unwrap();
@@ -204,6 +228,16 @@ fn main() {
         .name("OSC".to_string())
         .spawn(move || {
             osc_receiver.run();
+        });
+    if let Err(err) = res {
+        error!("Failed to create thread: {}", err);
+        process::exit(1);
+    }
+
+    let res = thread::Builder::new()
+        .name("MQTT".to_string())
+        .spawn(move || {
+            mqtt_client.run();
         });
     if let Err(err) = res {
         error!("Failed to create thread: {}", err);
