@@ -77,6 +77,7 @@ pub struct Photonizer {
     pulses: Vec<Pulse>,
     last_peak: f32,
     osc_options_sent: Instant,
+    blacked_out: bool,
 }
 
 impl Photonizer {
@@ -124,6 +125,7 @@ impl Photonizer {
             pulses,
             last_peak: 0.0,
             osc_options_sent: Instant::now(),
+            blacked_out: false,
         }
     }
 
@@ -131,13 +133,18 @@ impl Photonizer {
         let mut intensities = vec![0.0f32; self.window_size];
 
         loop {
-            self.transform(&mut intensities);
-            self.photonize(&intensities);
-            self.send_osc(&intensities);
+            if self.options.lock().unwrap().enabled {
+                self.transform(&mut intensities);
+                self.photonize(&intensities);
+                self.send_osc(&intensities);
+            } else {
+                self.blackout();
+            }
 
             if self.options.lock().unwrap().shutdown {
                 break;
             }
+
             self.timer.sleep_until_next_tick();
         }
     }
@@ -182,6 +189,14 @@ impl Photonizer {
         }
     }
 
+    fn blackout(&mut self) {
+        if !self.blacked_out {
+            self.ola.blackout();
+            self.ola.flush();
+            self.blacked_out = true;
+        }
+    }
+
     fn photonize(&mut self, intensities: &Vec<f32>) {
         let mode = self.options.lock().unwrap().mode;
         match mode {
@@ -190,6 +205,7 @@ impl Photonizer {
             Mode::Static => self.static_color(),
         }
         self.ola.flush();
+        self.blacked_out = false;
     }
 
     fn light_bar(&mut self, intensities: &Vec<f32>) {
