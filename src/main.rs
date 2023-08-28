@@ -8,7 +8,6 @@ pub(crate) mod playbackstate;
 pub(crate) mod pulseinput;
 pub(crate) mod sdlplayer;
 
-use std::net::{SocketAddr, ToSocketAddrs};
 use std::path::PathBuf;
 use std::process;
 use std::str::FromStr;

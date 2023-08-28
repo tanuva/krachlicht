@@ -1,12 +1,8 @@
 extern crate sdl2;
 
-use core::panic;
 use log::error;
 use sdl2::audio::AudioStatus::Playing;
-use sdl2::{
-    audio::{self, *},
-    AudioSubsystem, Sdl,
-};
+use sdl2::{audio::*, AudioSubsystem, Sdl};
 use std::process;
 use std::{
     sync::{Arc, Mutex},
