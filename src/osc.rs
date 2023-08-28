@@ -1,5 +1,5 @@
 use std::{
-    net::{SocketAddr, UdpSocket},
+    net::{SocketAddr, ToSocketAddrs, UdpSocket},
     str::FromStr,
     sync::{Arc, Mutex},
 };
@@ -20,14 +20,33 @@ pub struct OscReceiver {
 }
 
 impl OscSender {
-    pub fn new(dst_addr: SocketAddr) -> Result<Self, String> {
+    pub fn new(dst_addr: &(impl ToSocketAddrs + std::fmt::Debug)) -> Result<Self, String> {
         let src_addr = SocketAddr::from_str("0.0.0.0:0").unwrap();
         let sock = match UdpSocket::bind(src_addr) {
             Ok(sock) => sock,
             Err(error) => return Err(error.to_string()),
         };
 
-        Ok(OscSender { sock, dst_addr })
+        let mut addr_iter = match dst_addr.to_socket_addrs() {
+            Ok(iter) => iter,
+            Err(err) => {
+                return Err(format!("Cannot connect to OLA daemon: {err}"));
+            }
+        };
+        let resolved_addr = match addr_iter.next() {
+            Some(addr) => addr,
+            None => {
+                return Err(format!(
+                    "Cannot connect to OLA daemon: No socket addresses for {:?}",
+                    dst_addr
+                ));
+            }
+        };
+
+        Ok(OscSender {
+            sock,
+            dst_addr: resolved_addr,
+        })
     }
 
     pub fn send_buckets(&self, intensities: &[f32]) {
@@ -75,10 +94,26 @@ impl OscSender {
 
 impl OscReceiver {
     pub fn new(
-        listen_addr: SocketAddr,
+        listen_addr: &(impl ToSocketAddrs + std::fmt::Debug),
         options: Arc<Mutex<PhotonizerOptions>>,
     ) -> Result<Self, String> {
-        let sock = match UdpSocket::bind(listen_addr) {
+        let mut addr_iter = match listen_addr.to_socket_addrs() {
+            Ok(iter) => iter,
+            Err(err) => {
+                return Err(format!("Cannot connect to OLA daemon: {err}"));
+            }
+        };
+        let resolved_addr = match addr_iter.next() {
+            Some(addr) => addr,
+            None => {
+                return Err(format!(
+                    "Cannot connect to OLA daemon: No socket addresses for {:?}",
+                    listen_addr
+                ));
+            }
+        };
+
+        let sock = match UdpSocket::bind(resolved_addr) {
             Ok(sock) => sock,
             Err(error) => return Err(error.to_string()),
         };

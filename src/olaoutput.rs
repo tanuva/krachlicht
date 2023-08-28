@@ -1,5 +1,5 @@
 use std::{
-    net::{SocketAddr, UdpSocket},
+    net::{SocketAddr, ToSocketAddrs, UdpSocket},
     str::FromStr,
 };
 
@@ -12,11 +12,27 @@ pub struct OlaOutput {
 }
 
 impl OlaOutput {
-    pub fn new(target_addr: SocketAddr) -> Result<Self, String> {
+    pub fn new(target_addr: &(impl ToSocketAddrs + std::fmt::Debug)) -> Result<Self, String> {
         let our_addr = SocketAddr::from_str("127.0.0.1:0").unwrap();
         let sock = match UdpSocket::bind(our_addr) {
             Ok(sock) => sock,
             Err(error) => return Err(error.to_string()),
+        };
+
+        let mut addr_iter = match target_addr.to_socket_addrs() {
+            Ok(iter) => iter,
+            Err(err) => {
+                return Err(format!("Cannot connect to OLA daemon: {err}"));
+            }
+        };
+        let resolved_addr = match addr_iter.next() {
+            Some(addr) => addr,
+            None => {
+                return Err(format!(
+                    "Cannot connect to OLA daemon: No socket addresses for {:?}",
+                    target_addr
+                ));
+            }
         };
 
         let mut buffer = Vec::with_capacity(512);
@@ -26,7 +42,7 @@ impl OlaOutput {
 
         Ok(OlaOutput {
             sock,
-            target_addr,
+            target_addr: resolved_addr,
             buffer,
         })
     }

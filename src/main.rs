@@ -8,7 +8,7 @@ pub(crate) mod playbackstate;
 pub(crate) mod pulseinput;
 pub(crate) mod sdlplayer;
 
-use std::net::SocketAddr;
+use std::net::{SocketAddr, ToSocketAddrs};
 use std::path::PathBuf;
 use std::process;
 use std::str::FromStr;
@@ -53,12 +53,12 @@ struct Config {
     pa_device: Option<String>,
     sound_file_path: Option<PathBuf>,
 
-    osc_listen_addr: SocketAddr,
-    osc_dst_addr: SocketAddr,
+    osc_listen_addr: String,
+    osc_dst_addr: String,
 
-    ola_host_addr: SocketAddr,
+    ola_host_addr: String,
 
-    mqtt_broker_url: String, // TODO Proper URL type?
+    mqtt_broker_url: String,
     mqtt_discovery_prefix: String,
     mqtt_unique_id: String,
 }
@@ -95,10 +95,10 @@ fn validate_config(args: &Cli, disk_config: &Config) -> Result<Config, String> {
         } else {
             disk_config.sound_file_path.clone()
         },
-        osc_listen_addr: disk_config.osc_listen_addr,
-        osc_dst_addr: disk_config.osc_dst_addr,
+        osc_listen_addr: disk_config.osc_listen_addr.clone(),
+        osc_dst_addr: disk_config.osc_dst_addr.clone(),
 
-        ola_host_addr: disk_config.ola_host_addr,
+        ola_host_addr: disk_config.ola_host_addr.clone(),
 
         mqtt_broker_url: disk_config.mqtt_broker_url.clone(),
         mqtt_discovery_prefix: disk_config.mqtt_discovery_prefix.clone(),
@@ -160,7 +160,7 @@ fn main() {
         }
     };
 
-    let ola = match OlaOutput::new(config.ola_host_addr) {
+    let ola = match OlaOutput::new(&config.ola_host_addr) {
         Ok(ola) => ola,
         Err(msg) => {
             log::error!("Cannot set up OLA output: {}", msg);
@@ -168,7 +168,7 @@ fn main() {
         }
     };
 
-    let osc_sender = match OscSender::new(config.osc_dst_addr) {
+    let osc_sender = match OscSender::new(&config.osc_dst_addr) {
         Ok(osc_sender) => osc_sender,
         Err(msg) => {
             log::error!("Cannot set up OSC publisher: {}", msg);
@@ -184,7 +184,7 @@ fn main() {
     );
 
     let osc_receiver =
-        match OscReceiver::new(config.osc_listen_addr, Arc::clone(&photonizer_options)) {
+        match OscReceiver::new(&config.osc_listen_addr, Arc::clone(&photonizer_options)) {
             Ok(osc_receiver) => osc_receiver,
             Err(msg) => {
                 log::error!("Cannot set up OSC receiver: {}", msg);
