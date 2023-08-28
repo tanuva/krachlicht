@@ -21,7 +21,7 @@ fn to_dmx(srgb: palette::LinSrgb) -> [u8; 3] {
     ]
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Mode {
     LightBar,
     Pixels,
@@ -134,7 +134,9 @@ impl Photonizer {
 
         loop {
             if self.options.lock().unwrap().enabled {
-                self.transform(&mut intensities);
+                if self.options.lock().unwrap().mode != Mode::Static {
+                    self.transform(&mut intensities);
+                }
                 self.photonize(&intensities);
                 self.send_osc(&intensities);
             } else {
