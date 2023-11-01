@@ -124,12 +124,6 @@ impl MqttClient {
 
             state_topic: self.topics.state.to_string(),
             command_topic: self.topics.state_set.to_string(),
-            //brightness_state_topic: self.topics.state.to_string(),
-            //brightness_command_topic: self.topics.state_set.to_string(),
-            //brightness_value_template: "{{ value_json.brightness }}",
-            //rgb_state_topic: self.topics.state.to_string(),
-            //rgb_command_topic: self.topics.state_set.to_string(),
-            //rgb_value_template: "{{ value_json.rgb | join(',') }}",
         };
 
         let payload_str = json::stringify(payload);
