@@ -60,8 +60,9 @@ impl PhotonizerOptions {
 }
 
 struct Pulse {
-    position: f32,
     color: palette::LinSrgb,
+    intensity: f32,
+    position: f32,
 }
 
 pub struct Photonizer {
@@ -271,6 +272,7 @@ impl Photonizer {
             self.pulses.push(Pulse {
                 color: accent_color,
                 position: 0.0,
+                intensity: 1.0,
             });
         }
 
