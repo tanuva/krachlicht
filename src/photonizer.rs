@@ -107,11 +107,6 @@ impl Photonizer {
             );
         }
 
-        let pulses = vec![Pulse {
-            color: palette::LinSrgb::new(1.0, 0.0, 0.0),
-            position: 0.0,
-        }];
-
         Photonizer {
             playback_state,
             options,
@@ -122,7 +117,7 @@ impl Photonizer {
             osc,
 
             pixel_count: PIXEL_COUNT,
-            pulses,
+            pulses: vec![],
             last_peak: 0.0,
             osc_options_sent: Instant::now(),
             blacked_out: false,
