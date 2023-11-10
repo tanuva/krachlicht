@@ -8,6 +8,7 @@ use std::time::{Duration, Instant};
 use crate::effects::lightbar::LightBar;
 use crate::effects::pixelflow::PixelFlow;
 use crate::effects::staticcolor::StaticColor;
+use crate::effects::thunderstruck::Thunderstruck;
 use crate::effects::LightingEffect;
 use crate::intervaltimer::IntervalTimer;
 use crate::olaoutput::OlaOutput;
@@ -29,6 +30,7 @@ pub enum Mode {
     LightBar,
     Pixels,
     Static,
+    Thunderstruck,
 }
 
 pub struct PhotonizerOptions {
@@ -203,6 +205,10 @@ impl Photonizer {
                     Box::new(PixelFlow::new(Arc::clone(&self.options), self.pixel_count))
                 }
                 Mode::Static => Box::new(StaticColor::new(
+                    Arc::clone(&self.options),
+                    self.pixel_count,
+                )),
+                Mode::Thunderstruck => Box::new(Thunderstruck::new(
                     Arc::clone(&self.options),
                     self.pixel_count,
                 )),

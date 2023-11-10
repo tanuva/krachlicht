@@ -15,6 +15,7 @@ impl From<Mode> for json::JsonValue {
             Mode::LightBar => "Light Bar".into(),
             Mode::Pixels => "Pixel Flow".into(),
             Mode::Static => "None".into(),
+            Mode::Thunderstruck => "Thunderstruck".into(),
         }
     }
 }
@@ -117,7 +118,7 @@ impl MqttClient {
             supported_color_modes: json::array! { "rgb" },
 
             effect: true,
-            effect_list: json::array! { "None", "Light Bar", "Pixel Flow" },
+            effect_list: json::array! { "None", "Light Bar", "Pixel Flow", "Thunderstruck" },
 
             availability_topic: self.topics.state.to_string(),
             availability_template: "{{ value_json.available }}",
@@ -243,6 +244,7 @@ impl MqttClient {
                     "None" => options.mode = Mode::Static,
                     "Light Bar" => options.mode = Mode::LightBar,
                     "Pixel Flow" => options.mode = Mode::Pixels,
+                    "Thunderstruck" => options.mode = Mode::Thunderstruck,
                     &_ => log::warn!("Unexpected effect: {effect}"),
                 },
                 None => log::warn!("Unexpected effect value: {}", json["effect"]),
