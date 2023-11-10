@@ -1,11 +1,14 @@
 extern crate dft;
 
 use dft::{Operation, Plan};
-use palette::blend::Blend;
-use palette::{LinSrgb, WithAlpha};
+use palette::LinSrgb;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use crate::effects::lightbar::LightBar;
+use crate::effects::pixelflow::PixelFlow;
+use crate::effects::staticcolor::StaticColor;
+use crate::effects::LightingEffect;
 use crate::intervaltimer::IntervalTimer;
 use crate::olaoutput::OlaOutput;
 use crate::osc::OscSender;
@@ -38,7 +41,7 @@ pub struct PhotonizerOptions {
     pub background_intensity: f32,
 
     // Step value applied every frame
-    pub pulse_speed: f32,
+    pub pulse_speed: f32, // TODO Not currently forwarded
     pub accent_color: palette::LinSrgb,
     pub background_color: palette::LinSrgb,
 }
@@ -59,12 +62,6 @@ impl PhotonizerOptions {
     }
 }
 
-struct Pulse {
-    color: palette::LinSrgb,
-    intensity: f32,
-    position: f32,
-}
-
 pub struct Photonizer {
     playback_state: Arc<Mutex<PlaybackState>>,
     options: Arc<Mutex<PhotonizerOptions>>,
@@ -75,8 +72,8 @@ pub struct Photonizer {
     osc: OscSender,
 
     pixel_count: usize,
-    pulses: Vec<Pulse>,
-    last_peak: f32,
+    effect: Box<dyn LightingEffect + Send>,
+    last_mode: Mode,
     osc_options_sent: Instant,
     blacked_out: bool,
 }
@@ -110,7 +107,7 @@ impl Photonizer {
 
         Photonizer {
             playback_state,
-            options,
+            options: Arc::clone(&options),
             plan: Plan::<f32>::new(Operation::Forward, window_size),
             window_size,
             timer: IntervalTimer::new(UPDATE_FREQ_HZ, true),
@@ -118,8 +115,8 @@ impl Photonizer {
             osc,
 
             pixel_count: PIXEL_COUNT,
-            pulses: vec![],
-            last_peak: 0.0,
+            effect: Box::new(LightBar::new(Arc::clone(&options), PIXEL_COUNT)),
+            last_mode: Mode::LightBar,
             osc_options_sent: Instant::now(),
             blacked_out: false,
         }
@@ -197,195 +194,30 @@ impl Photonizer {
 
     fn photonize(&mut self, intensities: &Vec<f32>) {
         let mode = self.options.lock().unwrap().mode;
-        match mode {
-            Mode::LightBar => self.light_bar(&intensities),
-            Mode::Pixels => self.pixel_pulses(&intensities),
-            Mode::Static => self.static_color(),
+        if mode != self.last_mode {
+            self.effect = match mode {
+                Mode::LightBar => {
+                    Box::new(LightBar::new(Arc::clone(&self.options), self.pixel_count))
+                }
+                Mode::Pixels => {
+                    Box::new(PixelFlow::new(Arc::clone(&self.options), self.pixel_count))
+                }
+                Mode::Static => Box::new(StaticColor::new(
+                    Arc::clone(&self.options),
+                    self.pixel_count,
+                )),
+            };
+
+            self.last_mode = mode;
+        }
+
+        let frame = self.effect.step(intensities);
+        let master_intensity = self.options.lock().unwrap().master_intensity;
+        for i in 0..frame.len() {
+            self.ola
+                .set_rgb(i as u8 * 3, to_dmx(frame[i] * master_intensity));
         }
         self.ola.flush();
         self.blacked_out = false;
-    }
-
-    fn light_bar(&mut self, intensities: &Vec<f32>) {
-        const PEAK_FALLOFF: f32 = 0.90;
-
-        let cur_val = intensities[2].clamp(0.0, 1.0);
-        if cur_val > self.last_peak {
-            self.last_peak = cur_val;
-        }
-
-        let black = palette::LinSrgba::new(0.0, 0.0, 0.0, 1.0);
-        let accent_color = self
-            .options
-            .lock()
-            .unwrap()
-            .accent_color
-            .with_alpha(self.last_peak);
-        let blended = black.overlay(accent_color).color;
-        let master_intensity = self.options.lock().unwrap().master_intensity;
-
-        for pixel in 0..18 {
-            self.ola
-                .set_rgb(pixel * 3, to_dmx(blended * master_intensity));
-        }
-
-        self.last_peak *= PEAK_FALLOFF;
-    }
-
-    fn advance_pulses(&mut self) {
-        let pulse_speed = self.options.lock().unwrap().pulse_speed;
-
-        for pulse in &mut self.pulses {
-            pulse.position += pulse_speed;
-        }
-    }
-
-    fn remove_pulses(&mut self) {
-        // This would be nicer as a do-while loop. And feels awkward in any case.
-        let mut check_again = true;
-        while check_again {
-            check_again = false;
-
-            for i in 0..self.pulses.len() {
-                if self.pulses[i].position > self.pixel_count as f32 - 1.0 {
-                    self.pulses.remove(i);
-                    check_again = true;
-                    break;
-                }
-            }
-        }
-    }
-
-    fn create_pulse(&mut self, intensities: &Vec<f32>) {
-        const PEAK_FALLOFF: f32 = 0.95;
-
-        let accent_color = self.options.lock().unwrap().accent_color;
-        let cur_val = intensities[2].clamp(0.0, 1.0);
-        if cur_val > self.last_peak {
-            if let Some(last_pulse) = self.pulses.last() {
-                if last_pulse.position < 1.0 {
-                    return;
-                }
-            }
-
-            self.last_peak = cur_val;
-            self.pulses.push(Pulse {
-                color: accent_color,
-                position: 0.0,
-                intensity: 1.0,
-            });
-        }
-
-        self.last_peak *= PEAK_FALLOFF;
-    }
-
-    fn pixel_pulses(&mut self, intensities: &Vec<f32>) {
-        self.advance_pulses();
-        self.remove_pulses();
-        self.create_pulse(intensities);
-
-        let black = palette::LinSrgba::new(0.0, 0.0, 0.0, 1.0);
-        let mut frame_buffer = vec![black; self.pixel_count];
-
-        // Pulse draw pass
-        for pulse in &self.pulses {
-            let pos = pulse.position;
-            let pulse_speed = self.options.lock().unwrap().pulse_speed;
-
-            // Interpolate pulse between the two nearest pixels
-            let trailing_pixel = if pulse_speed > 0.0 {
-                pos.floor()
-            } else {
-                pos.ceil()
-            };
-
-            let leading_pixel = if pulse_speed > 0.0 {
-                pos.ceil()
-            } else {
-                pos.floor()
-            };
-
-            let trailing_alpha = (leading_pixel - pos).abs();
-            let leading_alpha = (trailing_pixel - pos).abs();
-
-            frame_buffer[trailing_pixel as usize] = frame_buffer[trailing_pixel as usize]
-                .overlay(pulse.color.with_alpha(trailing_alpha));
-            frame_buffer[leading_pixel as usize] =
-                frame_buffer[leading_pixel as usize].overlay(pulse.color.with_alpha(leading_alpha));
-
-            // TODO Draw pulse trail?
-            //let pulse_length = 3.0f32;
-        }
-
-        let master_intensity = self.options.lock().unwrap().master_intensity;
-        for i in 0..frame_buffer.len() {
-            let pixel = frame_buffer[i];
-            //print!("pixel: {:?}\t", pixel);
-            let blended = black.overlay(pixel).color;
-            //println!("blended: {:?}", pixel);
-            self.ola
-                .set_rgb(i as u8 * 3, to_dmx(blended * master_intensity));
-        }
-    }
-
-    fn static_color(&mut self) {
-        let master_intensity = self.options.lock().unwrap().master_intensity;
-        let color = self.options.lock().unwrap().accent_color;
-
-        for pixel_idx in 0..self.pixel_count {
-            self.ola
-                .set_rgb(pixel_idx as u8 * 3, to_dmx(color * master_intensity))
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // Translated from https://floating-point-gui.de/errors/comparison/
-    fn nearly_equal(a: f32, b: f32, epsilon: f32) -> bool {
-        let abs_a = a.abs();
-        let abs_b = b.abs();
-        let diff = (a - b).abs();
-
-        if a == b {
-            // shortcut, handles infinities
-            return true;
-        } else if a == 0.0 || b == 0.0 || f32::is_subnormal(abs_a + abs_b) {
-            // a or b is zero or both are extremely close to it
-            // relative error is less meaningful here
-            return diff < (epsilon * f32::MIN);
-        } else {
-            // use relative error
-            return diff / (abs_a + abs_b).min(f32::MAX) < epsilon;
-        }
-    }
-
-    #[test]
-    fn blah() {
-        let black = palette::LinSrgb::new(0.0f32, 0.0, 0.0).opaque();
-        let mut pixel = palette::LinSrgb::new(1.0, 0.0, 0.0).opaque();
-
-        pixel.alpha = 0.25;
-        let result_25 = black.overlay(pixel);
-        assert!(nearly_equal(result_25.red, 0.25, 0.01));
-        assert!(nearly_equal(result_25.green, 0.0, 0.01));
-        assert!(nearly_equal(result_25.blue, 0.0, 0.01));
-        assert!(nearly_equal(result_25.alpha, 1.0, 0.01));
-
-        pixel.alpha = 0.50;
-        let result_50 = black.overlay(pixel);
-        assert!(nearly_equal(result_50.red, 0.50, 0.01));
-        assert!(nearly_equal(result_50.green, 0.0, 0.01));
-        assert!(nearly_equal(result_50.blue, 0.0, 0.01));
-        assert!(nearly_equal(result_50.alpha, 1.0, 0.01));
-
-        pixel.alpha = 0.80;
-        let result_80 = black.overlay(pixel);
-        assert!(nearly_equal(result_80.red, 0.80, 0.01));
-        assert!(nearly_equal(result_80.green, 0.0, 0.01));
-        assert!(nearly_equal(result_80.blue, 0.0, 0.01));
-        assert!(nearly_equal(result_80.alpha, 1.0, 0.01));
     }
 }

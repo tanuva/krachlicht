@@ -1,5 +1,6 @@
 pub(crate) mod audiosource;
 pub(crate) mod intervaltimer;
+pub(crate) mod effects;
 pub(crate) mod mqtt;
 pub(crate) mod olaoutput;
 pub(crate) mod osc;
