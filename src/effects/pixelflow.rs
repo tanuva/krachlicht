@@ -35,9 +35,11 @@ impl PixelFlow {
     }
 
     fn remove_pulses(&mut self) {
-        // TODO Try self.pulses.retain(|pulse| pulse.position < self.pixel_count as f32 - 1.0);
         // FIXME This is not flow direction agnostic!
-        // This would be nicer as a do-while loop. And feels awkward in any case.
+        self.pulses
+            .retain(|pulse| pulse.position < self.pixel_count as f32 - 1.0);
+        return;
+
         let mut check_again = true;
         while check_again {
             check_again = false;
